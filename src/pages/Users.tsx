@@ -184,6 +184,8 @@ export default function Users() {
     
     setActionLoading(`reset-${user.id}`);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      
       const { data, error } = await supabase.functions.invoke('manage-user', {
         body: {
           action: 'reset_password',
@@ -191,16 +193,20 @@ export default function Users() {
           email: user.email,
           profile_id: user.id,
         },
+        headers: {
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+        },
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Senha redefinida! Email enviado com a nova senha temporária.' });
     } catch (error: any) {
       console.error('Error resetting password:', error);
       toast({
         variant: 'destructive',
-        title: 'Erro ao enviar email',
+        title: 'Erro ao redefinir senha',
         description: error.message,
       });
     } finally {
@@ -216,6 +222,8 @@ export default function Users() {
     
     setActionLoading(`toggle-${user.id}`);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      
       const { data, error } = await supabase.functions.invoke('manage-user', {
         body: {
           action: 'toggle_active',
@@ -223,9 +231,13 @@ export default function Users() {
           profile_id: user.id,
           is_active: newStatus,
         },
+        headers: {
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+        },
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       // Update local state
       setUsers(prev => prev.map(u => 
