@@ -111,6 +111,36 @@ export default function EmployeeForm({ client, onSuccess, onCancel }: EmployeeFo
 
       if (roleError) throw roleError;
 
+      // Send invite email
+      try {
+        const loginUrl = `${window.location.origin}/auth`;
+        const { error: emailError } = await supabase.functions.invoke('send-invite-email', {
+          body: {
+            email: formData.email,
+            full_name: formData.full_name,
+            company_name: client.company_name,
+            temp_password: formData.password,
+            login_url: loginUrl,
+          },
+        });
+
+        if (emailError) {
+          console.error('Error sending invite email:', emailError);
+          toast({
+            variant: 'default',
+            title: 'Funcionário criado',
+            description: 'Funcionário criado com sucesso, mas houve um erro ao enviar o email de convite.',
+          });
+        } else {
+          toast({
+            title: 'Funcionário criado',
+            description: 'Email de convite enviado com sucesso!',
+          });
+        }
+      } catch (emailErr) {
+        console.error('Error invoking email function:', emailErr);
+      }
+
       onSuccess();
     } catch (error: any) {
       console.error('Error creating employee:', error);
