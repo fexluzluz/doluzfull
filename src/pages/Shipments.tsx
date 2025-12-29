@@ -222,7 +222,7 @@ export default function Shipments() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Data</TableHead>
-                    {isAdmin && <TableHead>Cliente</TableHead>}
+                    <TableHead>Empresa</TableHead>
                     <TableHead>Destinatário</TableHead>
                     <TableHead>Destino</TableHead>
                     <TableHead>Status</TableHead>
@@ -237,11 +237,9 @@ export default function Shipments() {
                       <TableCell className="whitespace-nowrap">
                         {formatDateTime(shipment.created_at)}
                       </TableCell>
-                      {isAdmin && (
-                        <TableCell className="font-medium">
-                          {shipment.clients?.company_name || '-'}
-                        </TableCell>
-                      )}
+                      <TableCell className="font-medium">
+                        {shipment.clients?.company_name || '-'}
+                      </TableCell>
                       <TableCell className="font-medium">{shipment.recipient_name}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {shipment.recipient_city}/{shipment.recipient_state}
