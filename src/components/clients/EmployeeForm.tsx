@@ -213,13 +213,16 @@ export default function EmployeeForm({ client, onSuccess, onCancel }: EmployeeFo
 
       if (profileError || !profileData) throw new Error('Erro ao obter perfil do usuário');
 
-      // Update profile with phone
+      // Update profile with phone and set must_change_password flag
+      const profileUpdate: Record<string, any> = { must_change_password: true };
       if (formData.phone) {
-        await supabase
-          .from('profiles')
-          .update({ phone: formData.phone })
-          .eq('id', profileData.id);
+        profileUpdate.phone = formData.phone;
       }
+      
+      await supabase
+        .from('profiles')
+        .update(profileUpdate)
+        .eq('id', profileData.id);
 
       // Create the employee link
       const { error: employeeError } = await supabase.from('client_employees').insert({
