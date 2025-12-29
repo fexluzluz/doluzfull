@@ -187,59 +187,20 @@ export default function EmployeeForm({ client, onSuccess, onCancel }: EmployeeFo
     setIsLoading(true);
 
     try {
-      // Create user via auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.full_name,
-          },
+      // Create user via edge function (uses admin API, doesn't affect current session)
+      const { data: createData, error: createError } = await supabase.functions.invoke('create-employee', {
+        body: {
+          email: formData.email,
+          full_name: formData.full_name,
+          phone: formData.phone || null,
+          password: formData.password,
+          client_id: client.id,
+          company_name: client.company_name,
         },
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Erro ao criar usuário');
-
-      // Wait for profile to be created by trigger
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Get the profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', authData.user.id)
-        .single();
-
-      if (profileError || !profileData) throw new Error('Erro ao obter perfil do usuário');
-
-      // Update profile with phone and set must_change_password flag
-      const profileUpdate: Record<string, any> = { must_change_password: true };
-      if (formData.phone) {
-        profileUpdate.phone = formData.phone;
-      }
-      
-      await supabase
-        .from('profiles')
-        .update(profileUpdate)
-        .eq('id', profileData.id);
-
-      // Create the employee link
-      const { error: employeeError } = await supabase.from('client_employees').insert({
-        client_id: client.id,
-        profile_id: profileData.id,
-        is_active: true,
-      });
-
-      if (employeeError) throw employeeError;
-
-      // Add employee role
-      const { error: roleError } = await supabase.from('user_roles').insert({
-        user_id: authData.user.id,
-        role: 'employee',
-      });
-
-      if (roleError) throw roleError;
+      if (createError) throw createError;
+      if (createData?.error) throw new Error(createData.error);
 
       // Send invite email
       try {
