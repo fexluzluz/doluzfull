@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Users as UsersIcon, Shield, Building2, UserCog } from 'lucide-react';
+import { Search, Users as UsersIcon, Shield, Building2, UserCog, Loader2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { Navigate } from 'react-router-dom';
 import { AppRole } from '@/types/database';
@@ -26,11 +27,12 @@ interface UserData {
 }
 
 export default function Users() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, user: currentUser } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -127,6 +129,53 @@ export default function Users() {
     return <Navigate to="/" replace />;
   }
 
+  const handleRoleChange = async (userId: string, newRole: AppRole) => {
+    setUpdatingRole(userId);
+    try {
+      // Check if user already has a role
+      const { data: existingRole, error: checkError } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existingRole) {
+        // Update existing role
+        const { error } = await supabase
+          .from('user_roles')
+          .update({ role: newRole })
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } else {
+        // Insert new role
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({ user_id: userId, role: newRole });
+
+        if (error) throw error;
+      }
+
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u.user_id === userId ? { ...u, role: newRole } : u
+      ));
+
+      toast({ title: 'Role atualizado com sucesso!' });
+    } catch (error: any) {
+      console.error('Error updating role:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar role',
+        description: error.message,
+      });
+    } finally {
+      setUpdatingRole(null);
+    }
+  };
+
   const getRoleBadge = (role: AppRole | null, isEmployee: boolean) => {
     if (role === 'admin') {
       return <Badge variant="default" className="bg-primary"><Shield className="h-3 w-3 mr-1" /> Admin</Badge>;
@@ -197,29 +246,54 @@ export default function Users() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Tipo</TableHead>
+                    <TableHead>Tipo Atual</TableHead>
+                    <TableHead>Alterar Role</TableHead>
                     <TableHead>Empresa</TableHead>
-                    <TableHead>Telefone</TableHead>
                     <TableHead>Cadastro</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.full_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                      <TableCell>{getRoleBadge(user.role, user.is_employee)}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {user.client_name || '-'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {user.phone || '-'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(user.created_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredUsers.map((user) => {
+                    const isCurrentUser = user.user_id === currentUser?.id;
+                    const isUpdating = updatingRole === user.user_id;
+                    
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.full_name}</TableCell>
+                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                        <TableCell>{getRoleBadge(user.role, user.is_employee)}</TableCell>
+                        <TableCell>
+                          {isCurrentUser ? (
+                            <span className="text-xs text-muted-foreground">Você</span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={user.role || 'client'}
+                                onValueChange={(value) => handleRoleChange(user.user_id, value as AppRole)}
+                                disabled={isUpdating}
+                              >
+                                <SelectTrigger className="w-32 h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="client">Cliente</SelectItem>
+                                  <SelectItem value="employee">Colaborador</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {isUpdating && <Loader2 className="h-4 w-4 animate-spin" />}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {user.client_name || '-'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(user.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
