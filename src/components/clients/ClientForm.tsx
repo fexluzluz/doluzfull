@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { useCepLookup } from '@/hooks/useCepLookup';
+import { useCnpjLookup } from '@/hooks/useCnpjLookup';
+import { Loader2, Search } from 'lucide-react';
 import { z } from 'zod';
 import { brazilianStates } from '@/lib/utils';
 
@@ -36,6 +38,8 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { lookupCep, isLoading: isLoadingCep } = useCepLookup();
+  const { lookupCnpj, isLoading: isLoadingCnpj } = useCnpjLookup();
 
   const [formData, setFormData] = useState({
     company_name: client?.company_name || '',
@@ -84,6 +88,74 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const handleCepChange = async (value: string) => {
+    // Format CEP as user types
+    const cleanValue = value.replace(/\D/g, '');
+    let formattedValue = cleanValue;
+    if (cleanValue.length > 5) {
+      formattedValue = `${cleanValue.slice(0, 5)}-${cleanValue.slice(5, 8)}`;
+    }
+    
+    handleChange('postal_code', formattedValue);
+
+    // Auto-lookup when CEP is complete
+    if (cleanValue.length === 8) {
+      const result = await lookupCep(cleanValue);
+      if (result) {
+        setFormData((prev) => ({
+          ...prev,
+          address: result.address || prev.address,
+          city: result.city || prev.city,
+          state: result.state || prev.state,
+        }));
+        toast({
+          title: 'Endereço encontrado!',
+          description: 'Os dados foram preenchidos automaticamente.',
+        });
+      }
+    }
+  };
+
+  const handleCnpjChange = (value: string) => {
+    // Format CNPJ as user types
+    const cleanValue = value.replace(/\D/g, '');
+    let formattedValue = cleanValue;
+    
+    if (cleanValue.length > 2) {
+      formattedValue = `${cleanValue.slice(0, 2)}.${cleanValue.slice(2)}`;
+    }
+    if (cleanValue.length > 5) {
+      formattedValue = `${cleanValue.slice(0, 2)}.${cleanValue.slice(2, 5)}.${cleanValue.slice(5)}`;
+    }
+    if (cleanValue.length > 8) {
+      formattedValue = `${cleanValue.slice(0, 2)}.${cleanValue.slice(2, 5)}.${cleanValue.slice(5, 8)}/${cleanValue.slice(8)}`;
+    }
+    if (cleanValue.length > 12) {
+      formattedValue = `${cleanValue.slice(0, 2)}.${cleanValue.slice(2, 5)}.${cleanValue.slice(5, 8)}/${cleanValue.slice(8, 12)}-${cleanValue.slice(12, 14)}`;
+    }
+    
+    handleChange('cnpj', formattedValue);
+  };
+
+  const handleCnpjLookup = async () => {
+    const result = await lookupCnpj(formData.cnpj);
+    if (result) {
+      setFormData((prev) => ({
+        ...prev,
+        company_name: result.company_name || prev.company_name,
+        address: result.address || prev.address,
+        city: result.city || prev.city,
+        state: result.state || prev.state,
+        postal_code: result.postal_code || prev.postal_code,
+        phone: result.phone || prev.phone,
+      }));
+      toast({
+        title: 'Dados importados!',
+        description: 'Os dados da empresa foram preenchidos automaticamente.',
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -242,6 +314,36 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
         <h3 className="text-sm font-medium mb-3">Dados da Empresa</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2 space-y-2">
+            <Label htmlFor="cnpj">CNPJ</Label>
+            <div className="flex gap-2">
+              <Input
+                id="cnpj"
+                value={formData.cnpj}
+                onChange={(e) => handleCnpjChange(e.target.value)}
+                placeholder="00.000.000/0000-00"
+                maxLength={18}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCnpjLookup}
+                disabled={isLoadingCnpj || formData.cnpj.replace(/\D/g, '').length !== 14}
+                title="Buscar dados do CNPJ"
+              >
+                {isLoadingCnpj ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Digite o CNPJ e clique na lupa para importar os dados da empresa
+            </p>
+          </div>
+
+          <div className="col-span-2 space-y-2">
             <Label htmlFor="company_name">Nome da Empresa *</Label>
             <Input
               id="company_name"
@@ -253,26 +355,22 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
             {errors.company_name && <p className="text-sm text-destructive">{errors.company_name}</p>}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="cnpj">CNPJ</Label>
-            <Input
-              id="cnpj"
-              value={formData.cnpj}
-              onChange={(e) => handleChange('cnpj', e.target.value)}
-              placeholder="00.000.000/0000-00"
-              maxLength={18}
-            />
-          </div>
-
-          <div className="space-y-2">
+          <div className="col-span-2 space-y-2">
             <Label htmlFor="postal_code">CEP</Label>
-            <Input
-              id="postal_code"
-              value={formData.postal_code}
-              onChange={(e) => handleChange('postal_code', e.target.value)}
-              placeholder="00000-000"
-              maxLength={10}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="postal_code"
+                value={formData.postal_code}
+                onChange={(e) => handleCepChange(e.target.value)}
+                placeholder="00000-000"
+                maxLength={9}
+                className="w-40"
+              />
+              {isLoadingCep && <Loader2 className="h-4 w-4 animate-spin self-center text-muted-foreground" />}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Digite o CEP para preencher o endereço automaticamente
+            </p>
           </div>
 
           <div className="col-span-2 space-y-2">
