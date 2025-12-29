@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Users as UsersIcon, Shield, Building2, UserCog, Loader2 } from 'lucide-react';
+import { Search, Users as UsersIcon, Shield, Building2, UserCog, Loader2, KeyRound, UserX, UserCheck } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { Navigate } from 'react-router-dom';
 import { AppRole } from '@/types/database';
@@ -24,6 +24,7 @@ interface UserData {
   role: AppRole | null;
   client_name: string | null;
   is_employee: boolean;
+  is_active: boolean;
 }
 
 export default function Users() {
@@ -33,13 +34,14 @@ export default function Users() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
       // Fetch all profiles with their roles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, user_id, full_name, email, phone, created_at')
+        .select('id, user_id, full_name, email, phone, created_at, is_active')
         .order('full_name');
 
       if (profilesError) throw profilesError;
@@ -93,6 +95,7 @@ export default function Users() {
           role: rolesMap.get(profile.user_id) || null,
           client_name: clientName,
           is_employee: isEmployee,
+          is_active: profile.is_active !== false,
         };
       });
 
@@ -176,6 +179,71 @@ export default function Users() {
     }
   };
 
+  const handleResetPassword = async (user: UserData) => {
+    if (!confirm(`Enviar email de redefinição de senha para ${user.email}?`)) return;
+    
+    setActionLoading(`reset-${user.id}`);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: {
+          action: 'reset_password',
+          user_id: user.user_id,
+          email: user.email,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({ title: 'Email de redefinição de senha enviado!' });
+    } catch (error: any) {
+      console.error('Error resetting password:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar email',
+        description: error.message,
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleActive = async (user: UserData) => {
+    const newStatus = !user.is_active;
+    const action = newStatus ? 'ativar' : 'desativar';
+    
+    if (!confirm(`Tem certeza que deseja ${action} o usuário ${user.full_name}?`)) return;
+    
+    setActionLoading(`toggle-${user.id}`);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: {
+          action: 'toggle_active',
+          user_id: user.user_id,
+          profile_id: user.id,
+          is_active: newStatus,
+        },
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u.id === user.id ? { ...u, is_active: newStatus } : u
+      ));
+
+      toast({ title: `Usuário ${newStatus ? 'ativado' : 'desativado'} com sucesso!` });
+    } catch (error: any) {
+      console.error('Error toggling user status:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar status',
+        description: error.message,
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const getRoleBadge = (role: AppRole | null, isEmployee: boolean) => {
     if (role === 'admin') {
       return <Badge variant="default" className="bg-primary"><Shield className="h-3 w-3 mr-1" /> Admin</Badge>;
@@ -246,21 +314,31 @@ export default function Users() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Tipo Atual</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Tipo</TableHead>
                     <TableHead>Alterar Role</TableHead>
                     <TableHead>Empresa</TableHead>
-                    <TableHead>Cadastro</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.map((user) => {
                     const isCurrentUser = user.user_id === currentUser?.id;
                     const isUpdating = updatingRole === user.user_id;
+                    const isResetting = actionLoading === `reset-${user.id}`;
+                    const isToggling = actionLoading === `toggle-${user.id}`;
                     
                     return (
-                      <TableRow key={user.id}>
+                      <TableRow key={user.id} className={!user.is_active ? 'opacity-50' : ''}>
                         <TableCell className="font-medium">{user.full_name}</TableCell>
                         <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                        <TableCell>
+                          {user.is_active ? (
+                            <Badge variant="outline" className="text-green-600 border-green-600">Ativo</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-destructive border-destructive">Inativo</Badge>
+                          )}
+                        </TableCell>
                         <TableCell>{getRoleBadge(user.role, user.is_employee)}</TableCell>
                         <TableCell>
                           {isCurrentUser ? (
@@ -270,7 +348,7 @@ export default function Users() {
                               <Select
                                 value={user.role || 'client'}
                                 onValueChange={(value) => handleRoleChange(user.user_id, value as AppRole)}
-                                disabled={isUpdating}
+                                disabled={isUpdating || !user.is_active}
                               >
                                 <SelectTrigger className="w-32 h-8">
                                   <SelectValue />
@@ -288,8 +366,39 @@ export default function Users() {
                         <TableCell className="text-muted-foreground">
                           {user.client_name || '-'}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(user.created_at)}
+                        <TableCell className="text-right">
+                          {!isCurrentUser && (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleResetPassword(user)}
+                                disabled={isResetting || !user.is_active}
+                                title="Redefinir senha"
+                              >
+                                {isResetting ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <KeyRound className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleToggleActive(user)}
+                                disabled={isToggling}
+                                title={user.is_active ? 'Desativar usuário' : 'Ativar usuário'}
+                              >
+                                {isToggling ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : user.is_active ? (
+                                  <UserX className="h-4 w-4 text-destructive" />
+                                ) : (
+                                  <UserCheck className="h-4 w-4 text-green-600" />
+                                )}
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     );

@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.create-employee]
 verify_jwt = true
+
+[functions.manage-user]
+verify_jwt = true
