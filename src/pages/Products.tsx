@@ -169,35 +169,35 @@ export default function Products() {
             <p className="page-description">Gerencie o estoque de produtos</p>
           </div>
           {isAdmin && (
-            <Dialog open={isFormOpen} onOpenChange={(open) => {
-              setIsFormOpen(open);
-              if (!open) setEditingProduct(null);
-            }}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Produto
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingProduct ? 'Editar Produto' : 'Novo Produto'}
-                  </DialogTitle>
-                </DialogHeader>
-                <ProductForm
-                  product={editingProduct}
-                  onSuccess={handleFormSuccess}
-                  onCancel={() => {
-                    setIsFormOpen(false);
-                    setEditingProduct(null);
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => { setEditingProduct(null); setIsFormOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Produto
+            </Button>
           )}
         </div>
       </div>
+
+      {/* Product Form Dialog - Available for all users when editing */}
+      <Dialog open={isFormOpen} onOpenChange={(open) => {
+        setIsFormOpen(open);
+        if (!open) setEditingProduct(null);
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingProduct ? 'Editar Produto' : 'Novo Produto'}
+            </DialogTitle>
+          </DialogHeader>
+          <ProductForm
+            product={editingProduct}
+            onSuccess={handleFormSuccess}
+            onCancel={() => {
+              setIsFormOpen(false);
+              setEditingProduct(null);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Search */}
       <Card className="mb-6">
