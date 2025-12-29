@@ -64,7 +64,10 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
     city: client?.city || '',
     state: client?.state || '',
     postal_code: client?.postal_code || '',
-    handling_fee_per_item: client?.handling_fee_per_item || '4.50',
+    handling_fee_per_item: client?.handling_fee_per_item?.toString() || '4.50',
+    billing_type: client?.billing_type || 'per_unit',
+    fixed_storage_fee: client?.fixed_storage_fee?.toString() || '0',
+    storage_fee_per_m3: client?.storage_fee_per_m3?.toString() || '0',
     // User data (only for new clients)
     full_name: '',
     email: '',
@@ -126,7 +129,10 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
             city: data.city || '',
             state: data.state || '',
             postal_code: data.postal_code || '',
-            handling_fee_per_item: data.handling_fee_per_item || '4.50',
+            handling_fee_per_item: data.handling_fee_per_item?.toString() || '4.50',
+            billing_type: data.billing_type || 'per_unit',
+            fixed_storage_fee: data.fixed_storage_fee?.toString() || '0',
+            storage_fee_per_m3: data.storage_fee_per_m3?.toString() || '0',
             full_name: profile?.full_name || '',
             email: profile?.email || '',
             phone: profile?.phone || '',
@@ -273,6 +279,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
             state: formData.state || null,
             postal_code: formData.postal_code || null,
             handling_fee_per_item: parseFloat(formData.handling_fee_per_item) || 4.50,
+            billing_type: formData.billing_type,
+            fixed_storage_fee: parseFloat(formData.fixed_storage_fee) || 0,
+            storage_fee_per_m3: parseFloat(formData.storage_fee_per_m3) || 0,
           })
           .eq('id', client.id);
 
@@ -359,6 +368,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
           state: formData.state || null,
           postal_code: formData.postal_code || null,
           handling_fee_per_item: parseFloat(formData.handling_fee_per_item) || 4.50,
+          billing_type: formData.billing_type,
+          fixed_storage_fee: parseFloat(formData.fixed_storage_fee) || 0,
+          storage_fee_per_m3: parseFloat(formData.storage_fee_per_m3) || 0,
         });
 
         if (clientError) throw clientError;
@@ -518,6 +530,80 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
             <p className="text-xs text-muted-foreground">
               Valor cobrado por cada item nos envios deste cliente
             </p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Billing Configuration */}
+      <div>
+        <h3 className="text-sm font-medium mb-3">Modelo de Cobrança de Armazenagem</h3>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Tipo de Cobrança</Label>
+            <RadioGroup
+              value={formData.billing_type}
+              onValueChange={(value) => handleChange('billing_type', value)}
+              className="flex flex-col gap-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="fixed" id="billing-fixed" />
+                <Label htmlFor="billing-fixed" className="cursor-pointer font-normal">
+                  Taxa Fixa Mensal
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="per_unit" id="billing-per-unit" />
+                <Label htmlFor="billing-per-unit" className="cursor-pointer font-normal">
+                  Por Metro Cúbico (m³ unitário × quantidade)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="combined" id="billing-combined" />
+                <Label htmlFor="billing-combined" className="cursor-pointer font-normal">
+                  Combinado (Taxa Fixa + Por Metro Cúbico)
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {(formData.billing_type === 'fixed' || formData.billing_type === 'combined') && (
+              <div className="space-y-2">
+                <Label htmlFor="fixed_storage_fee">Taxa Fixa Mensal (R$)</Label>
+                <Input
+                  id="fixed_storage_fee"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.fixed_storage_fee}
+                  onChange={(e) => handleChange('fixed_storage_fee', e.target.value)}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Valor fixo cobrado mensalmente
+                </p>
+              </div>
+            )}
+
+            {(formData.billing_type === 'per_unit' || formData.billing_type === 'combined') && (
+              <div className="space-y-2">
+                <Label htmlFor="storage_fee_per_m3">Taxa por m³ (R$)</Label>
+                <Input
+                  id="storage_fee_per_m3"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.storage_fee_per_m3}
+                  onChange={(e) => handleChange('storage_fee_per_m3', e.target.value)}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Valor por m³ (calculado: volume unitário × quantidade)
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
