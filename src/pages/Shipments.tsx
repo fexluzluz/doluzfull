@@ -10,7 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Truck, Eye, Edit, Upload } from 'lucide-react';
+import { Plus, Search, Truck, Eye, Edit, Upload, XCircle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { formatDateTime, translateShipmentStatus } from '@/lib/utils';
 import ShipmentForm from '@/components/shipments/ShipmentForm';
 import ShipmentDetailsDialog from '@/components/shipments/ShipmentDetailsDialog';
@@ -51,6 +61,8 @@ export default function Shipments() {
   const [viewingShipment, setViewingShipment] = useState<Shipment | null>(null);
   const [editingStatus, setEditingStatus] = useState<Shipment | null>(null);
   const [uploadingShipment, setUploadingShipment] = useState<Shipment | null>(null);
+  const [cancellingShipment, setCancellingShipment] = useState<Shipment | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const fetchShipments = async () => {
     try {
@@ -92,6 +104,75 @@ export default function Shipments() {
     fetchShipments();
     fetchClients();
   }, [isAdmin]);
+
+  const handleCancelShipment = async () => {
+    if (!cancellingShipment) return;
+    
+    setIsCancelling(true);
+    try {
+      // Fetch shipment items to revert stock
+      const { data: items, error: itemsError } = await supabase
+        .from('shipment_items')
+        .select('product_id, quantity')
+        .eq('shipment_id', cancellingShipment.id);
+
+      if (itemsError) throw itemsError;
+
+      // Revert stock for each item
+      for (const item of items || []) {
+        const { data: product, error: productError } = await supabase
+          .from('products')
+          .select('quantity')
+          .eq('id', item.product_id)
+          .single();
+
+        if (productError) throw productError;
+
+        const newQuantity = product.quantity + item.quantity;
+
+        await supabase
+          .from('products')
+          .update({ quantity: newQuantity })
+          .eq('id', item.product_id);
+
+        // Create stock movement entry
+        await supabase.from('stock_movements').insert({
+          product_id: item.product_id,
+          movement_type: 'entry',
+          quantity: item.quantity,
+          previous_quantity: product.quantity,
+          new_quantity: newQuantity,
+          notes: `Estorno por cancelamento do envio #${cancellingShipment.id.slice(0, 8)}`,
+          created_by: (await supabase.auth.getUser()).data.user?.id,
+        });
+      }
+
+      // Update shipment status to cancelled and reset handling_total
+      const { error: updateError } = await supabase
+        .from('shipment_requests')
+        .update({ status: 'cancelled', handling_total: 0 })
+        .eq('id', cancellingShipment.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: 'Pedido cancelado',
+        description: 'O estoque foi estornado e o valor de manuseio zerado.',
+      });
+
+      fetchShipments();
+    } catch (error) {
+      console.error('Error cancelling shipment:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao cancelar pedido',
+        description: 'Tente novamente mais tarde.',
+      });
+    } finally {
+      setIsCancelling(false);
+      setCancellingShipment(null);
+    }
+  };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
@@ -311,6 +392,17 @@ export default function Shipments() {
                               <Edit className="h-4 w-4" />
                             </Button>
                           )}
+                          {shipment.status !== 'delivered' && shipment.status !== 'cancelled' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setCancellingShipment(shipment)}
+                              title="Cancelar pedido"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -339,6 +431,29 @@ export default function Shipments() {
       />
 
       {/* Upload Dialog */}
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={!!cancellingShipment} onOpenChange={(open) => !open && setCancellingShipment(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar pedido?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá cancelar o pedido de {cancellingShipment?.recipient_name}. 
+              O estoque será estornado e o valor de manuseio zerado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancelling}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelShipment}
+              disabled={isCancelling}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isCancelling ? 'Cancelando...' : 'Confirmar cancelamento'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <ShipmentUploadDialog
         shipment={uploadingShipment}
         onClose={() => setUploadingShipment(null)}
