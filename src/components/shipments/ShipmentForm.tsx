@@ -208,6 +208,40 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
     setIsLoading(true);
 
     try {
+      // Upload files if provided
+      let invoiceUrl: string | null = null;
+      let labelUrl: string | null = null;
+
+      if (invoiceFile) {
+        const fileExt = invoiceFile.name.split('.').pop();
+        const filePath = `${clientToUse}/${Date.now()}-invoice.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('shipment-attachments')
+          .upload(filePath, invoiceFile);
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: urlData } = supabase.storage
+          .from('shipment-attachments')
+          .getPublicUrl(filePath);
+        invoiceUrl = urlData.publicUrl;
+      }
+
+      if (labelFile) {
+        const fileExt = labelFile.name.split('.').pop();
+        const filePath = `${clientToUse}/${Date.now()}-label.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('shipment-attachments')
+          .upload(filePath, labelFile);
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: urlData } = supabase.storage
+          .from('shipment-attachments')
+          .getPublicUrl(filePath);
+        labelUrl = urlData.publicUrl;
+      }
+
       // Create shipment request
       const { data: shipmentData, error: shipmentError } = await supabase
         .from('shipment_requests')
@@ -223,6 +257,8 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
           notes: formData.notes || null,
           created_by: user?.id,
           status: 'pending',
+          invoice_url: invoiceUrl,
+          shipping_label_url: labelUrl,
         })
         .select()
         .single();
