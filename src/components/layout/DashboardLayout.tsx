@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useLogAccess } from '@/hooks/useLogAccess';
 import { Navigate } from 'react-router-dom';
-import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, X } from 'lucide-react';
+import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user, profile, role, isAdmin, isLoading, signOut } = useAuth();
-  const isMobile = useIsMobile();
+  const { user, profile, isAdmin, isLoading, signOut } = useAuth();
+  const { hasLogAccess } = useLogAccess();
   const [isOpen, setIsOpen] = useState(false);
 
   if (isLoading) {
@@ -38,6 +38,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (isAdmin) {
     navItems.splice(2, 0, { to: '/clients', icon: Users, label: 'Clientes' });
+  }
+
+  if (hasLogAccess) {
+    navItems.push({ to: '/logs', icon: ScrollText, label: 'Logs' });
   }
 
   const SidebarContent = () => (
