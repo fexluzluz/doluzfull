@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Building2, User, Package, Box, Users, UserPlus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Building2, User, Package, Box, Users, UserPlus, Trash2, ToggleLeft, ToggleRight, Mail, Loader2 } from 'lucide-react';
 import { formatNumber, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import EmployeeForm from './EmployeeForm';
@@ -23,6 +23,7 @@ export default function ClientDetailsDialog({ client, onClose }: ClientDetailsDi
   const [productCount, setProductCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
 
   useEffect(() => {
     if (client) {
@@ -101,6 +102,37 @@ export default function ClientDetailsDialog({ client, onClose }: ClientDetailsDi
         title: 'Erro ao remover colaborador',
         description: error.message,
       });
+    }
+  };
+
+  const resendInvite = async (employee: any) => {
+    if (!employee.profile?.email) return;
+    
+    setResendingInvite(employee.id);
+    try {
+      const { error } = await supabase.functions.invoke('send-invite-email', {
+        body: {
+          email: employee.profile.email,
+          full_name: employee.profile.full_name,
+          company_name: client.company_name,
+        }
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: 'Convite reenviado!',
+        description: `Email enviado para ${employee.profile.email}`
+      });
+    } catch (error: any) {
+      console.error('Error resending invite:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao reenviar convite',
+        description: error.message,
+      });
+    } finally {
+      setResendingInvite(null);
     }
   };
 
@@ -268,6 +300,19 @@ export default function ClientDetailsDialog({ client, onClose }: ClientDetailsDi
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => resendInvite(employee)}
+                                    disabled={resendingInvite === employee.id}
+                                    title="Reenviar convite"
+                                  >
+                                    {resendingInvite === employee.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Mail className="h-4 w-4" />
+                                    )}
+                                  </Button>
                                   <Button
                                     variant="ghost"
                                     size="icon"
