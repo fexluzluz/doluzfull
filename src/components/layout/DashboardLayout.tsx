@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLogAccess } from '@/hooks/useLogAccess';
 import { Navigate } from 'react-router-dom';
-import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText } from 'lucide-react';
+import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText, MapPin } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -38,6 +38,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (isAdmin) {
     navItems.splice(2, 0, { to: '/clients', icon: Users, label: 'Clientes' });
+    navItems.push({ to: '/locations', icon: MapPin, label: 'Localizações' });
   }
 
   if (hasLogAccess) {

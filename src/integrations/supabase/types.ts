@@ -127,6 +127,51 @@ export type Database = {
         }
         Relationships: []
       }
+      product_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary: boolean | null
+          location_id: string
+          product_id: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          location_id: string
+          product_id: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          location_id?: string
+          product_id?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_locations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           client_id: string
@@ -430,6 +475,42 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      warehouse_locations: {
+        Row: {
+          aisle: string
+          bin: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          max_capacity_m3: number | null
+          shelf: string
+          updated_at: string
+        }
+        Insert: {
+          aisle: string
+          bin: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_capacity_m3?: number | null
+          shelf: string
+          updated_at?: string
+        }
+        Update: {
+          aisle?: string
+          bin?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_capacity_m3?: number | null
+          shelf?: string
+          updated_at?: string
         }
         Relationships: []
       }
