@@ -195,6 +195,7 @@ export default function Products() {
               setIsFormOpen(false);
               setEditingProduct(null);
             }}
+            isAdmin={isAdmin}
           />
         </DialogContent>
       </Dialog>

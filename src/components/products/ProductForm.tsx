@@ -38,9 +38,10 @@ interface ProductFormProps {
   product?: Product | null;
   onSuccess: () => void;
   onCancel: () => void;
+  isAdmin?: boolean;
 }
 
-export default function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) {
+export default function ProductForm({ product, onSuccess, onCancel, isAdmin = false }: ProductFormProps) {
   const { toast } = useToast();
   const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
@@ -384,6 +385,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             min="0"
             value={formData.height_cm}
             onChange={(e) => handleChange('height_cm', e.target.value)}
+            disabled={!!product && !isAdmin}
           />
           {errors.height_cm && <p className="text-sm text-destructive">{errors.height_cm}</p>}
         </div>
@@ -397,6 +399,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             min="0"
             value={formData.width_cm}
             onChange={(e) => handleChange('width_cm', e.target.value)}
+            disabled={!!product && !isAdmin}
           />
           {errors.width_cm && <p className="text-sm text-destructive">{errors.width_cm}</p>}
         </div>
@@ -410,6 +413,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             min="0"
             value={formData.depth_cm}
             onChange={(e) => handleChange('depth_cm', e.target.value)}
+            disabled={!!product && !isAdmin}
           />
           {errors.depth_cm && <p className="text-sm text-destructive">{errors.depth_cm}</p>}
         </div>
@@ -423,6 +427,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             min="0"
             value={formData.weight_kg}
             onChange={(e) => handleChange('weight_kg', e.target.value)}
+            disabled={!!product && !isAdmin}
           />
         </div>
 
@@ -442,6 +447,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             min="0"
             value={formData.quantity}
             onChange={(e) => handleChange('quantity', e.target.value)}
+            disabled={!!product && !isAdmin}
           />
           {errors.quantity && <p className="text-sm text-destructive">{errors.quantity}</p>}
         </div>
