@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { useCepLookup } from '@/hooks/useCepLookup';
 import { useCnpjLookup } from '@/hooks/useCnpjLookup';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, UserPlus, UserCheck } from 'lucide-react';
 import { z } from 'zod';
 import { brazilianStates } from '@/lib/utils';
 
@@ -28,6 +29,13 @@ const userSchema = z.object({
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
 });
 
+interface ExistingUser {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+}
+
 interface ClientFormProps {
   client?: any;
   onSuccess: () => void;
@@ -40,6 +48,12 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { lookupCep, isLoading: isLoadingCep } = useCepLookup();
   const { lookupCnpj, isLoading: isLoadingCnpj } = useCnpjLookup();
+  
+  // User linking options
+  const [userMode, setUserMode] = useState<'new' | 'existing'>('new');
+  const [availableUsers, setAvailableUsers] = useState<ExistingUser[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   const [formData, setFormData] = useState({
     company_name: client?.company_name || '',
@@ -55,6 +69,41 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
     password: '',
   });
 
+  // Fetch available users (profiles without a client)
+  useEffect(() => {
+    if (!client) {
+      fetchAvailableUsers();
+    }
+  }, [client]);
+
+  const fetchAvailableUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      // Get all profiles that don't have an associated client
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, user_id, full_name, email')
+        .order('full_name');
+      
+      if (error) throw error;
+      
+      // Get profiles that already have clients
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('profile_id');
+      
+      const clientProfileIds = new Set(clients?.map(c => c.profile_id) || []);
+      
+      // Filter out profiles that already have clients
+      const available = (profiles || []).filter(p => !clientProfileIds.has(p.id));
+      setAvailableUsers(available);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
   useEffect(() => {
     if (client) {
       // Fetch full client data
@@ -63,7 +112,7 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
           .from('clients')
           .select('*, profile:profiles!clients_profile_id_fkey(*)')
           .eq('id', client.id)
-          .single();
+          .maybeSingle();
 
         if (data) {
           const profile = Array.isArray(data.profile) ? data.profile[0] : data.profile;
@@ -181,21 +230,26 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
       return;
     }
 
-    // For new clients, validate user data
+    // For new clients, validate based on user mode
     if (!client) {
-      const userResult = userSchema.safeParse({
-        full_name: formData.full_name,
-        email: formData.email,
-        phone: formData.phone || undefined,
-        password: formData.password,
-      });
-
-      if (!userResult.success) {
-        const fieldErrors: Record<string, string> = {};
-        userResult.error.errors.forEach((err) => {
-          if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      if (userMode === 'new') {
+        const userResult = userSchema.safeParse({
+          full_name: formData.full_name,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          password: formData.password,
         });
-        setErrors(fieldErrors);
+
+        if (!userResult.success) {
+          const fieldErrors: Record<string, string> = {};
+          userResult.error.errors.forEach((err) => {
+            if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+          });
+          setErrors(fieldErrors);
+          return;
+        }
+      } else if (userMode === 'existing' && !selectedUserId) {
+        setErrors({ selectedUserId: 'Selecione um usuário' });
         return;
       }
     }
@@ -232,43 +286,59 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
         toast({ title: 'Cliente atualizado com sucesso!' });
       } else {
-        // Create new user via auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.full_name,
+        let profileId: string;
+        let userId: string;
+
+        if (userMode === 'existing') {
+          // Use existing user
+          const selectedUser = availableUsers.find(u => u.id === selectedUserId);
+          if (!selectedUser) throw new Error('Usuário não encontrado');
+          
+          profileId = selectedUser.id;
+          userId = selectedUser.user_id;
+        } else {
+          // Create new user via auth
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+            options: {
+              data: {
+                full_name: formData.full_name,
+              },
             },
-          },
-        });
+          });
 
-        if (authError) throw authError;
-        if (!authData.user) throw new Error('Erro ao criar usuário');
+          if (authError) throw authError;
+          if (!authData.user) throw new Error('Erro ao criar usuário');
 
-        // Wait for profile to be created by trigger
-        await new Promise((resolve) => setTimeout(resolve, 500));
+          userId = authData.user.id;
 
-        // Get the profile
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', authData.user.id)
-          .single();
+          // Wait for profile to be created by trigger
+          await new Promise((resolve) => setTimeout(resolve, 500));
 
-        if (profileError || !profileData) throw new Error('Erro ao obter perfil do usuário');
-
-        // Update profile with phone
-        if (formData.phone) {
-          await supabase
+          // Get the profile
+          const { data: profileData, error: profileError } = await supabase
             .from('profiles')
-            .update({ phone: formData.phone })
-            .eq('id', profileData.id);
+            .select('id')
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
+
+          if (profileError || !profileData) throw new Error('Erro ao obter perfil do usuário');
+
+          profileId = profileData.id;
+
+          // Update profile with phone
+          if (formData.phone) {
+            await supabase
+              .from('profiles')
+              .update({ phone: formData.phone })
+              .eq('id', profileId);
+          }
         }
 
         // Create the client
         const { error: clientError } = await supabase.from('clients').insert({
-          profile_id: profileData.id,
+          profile_id: profileId,
           company_name: formData.company_name,
           cnpj: formData.cnpj || null,
           address: formData.address || null,
@@ -279,13 +349,14 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
         if (clientError) throw clientError;
 
-        // Add client role
+        // Add client role (if not already exists)
         const { error: roleError } = await supabase.from('user_roles').insert({
-          user_id: authData.user.id,
+          user_id: userId,
           role: 'client',
         });
 
-        if (roleError) throw roleError;
+        // Ignore duplicate role error
+        if (roleError && !roleError.message.includes('duplicate')) throw roleError;
 
         toast({ title: 'Cliente criado com sucesso!' });
       }
@@ -418,59 +489,123 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
       {/* User Data */}
       <div>
         <h3 className="text-sm font-medium mb-3">
-          {client ? 'Dados do Responsável' : 'Dados do Usuário Responsável'}
+          {client ? 'Dados do Responsável' : 'Vincular Usuário Responsável'}
         </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2 space-y-2">
-            <Label htmlFor="full_name">Nome Completo *</Label>
-            <Input
-              id="full_name"
-              value={formData.full_name}
-              onChange={(e) => handleChange('full_name', e.target.value)}
-              placeholder="Nome do responsável"
-              maxLength={200}
-            />
-            {errors.full_name && <p className="text-sm text-destructive">{errors.full_name}</p>}
+        
+        {/* User mode selection - only for new clients */}
+        {!client && (
+          <div className="mb-4">
+            <RadioGroup
+              value={userMode}
+              onValueChange={(value: 'new' | 'existing') => {
+                setUserMode(value);
+                setErrors({});
+              }}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="new" id="new-user" />
+                <Label htmlFor="new-user" className="flex items-center gap-1.5 cursor-pointer">
+                  <UserPlus className="h-4 w-4" />
+                  Criar novo usuário
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="existing" id="existing-user" />
+                <Label htmlFor="existing-user" className="flex items-center gap-1.5 cursor-pointer">
+                  <UserCheck className="h-4 w-4" />
+                  Vincular usuário existente
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
+        )}
 
+        {/* Existing user selection */}
+        {!client && userMode === 'existing' && (
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleChange('email', e.target.value)}
-              placeholder="email@empresa.com"
-              disabled={!!client}
-            />
-            {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+            <Label>Selecionar Usuário *</Label>
+            {isLoadingUsers ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carregando usuários...
+              </div>
+            ) : availableUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum usuário disponível. Todos os usuários já possuem empresa vinculada.
+              </p>
+            ) : (
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um usuário" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {errors.selectedUserId && <p className="text-sm text-destructive">{errors.selectedUserId}</p>}
           </div>
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Telefone</Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => handleChange('phone', e.target.value)}
-              placeholder="(00) 00000-0000"
-              maxLength={20}
-            />
-          </div>
-
-          {!client && (
+        {/* New user form fields */}
+        {(client || userMode === 'new') && (
+          <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 space-y-2">
-              <Label htmlFor="password">Senha *</Label>
+              <Label htmlFor="full_name">Nome Completo *</Label>
               <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                id="full_name"
+                value={formData.full_name}
+                onChange={(e) => handleChange('full_name', e.target.value)}
+                placeholder="Nome do responsável"
+                maxLength={200}
               />
-              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+              {errors.full_name && <p className="text-sm text-destructive">{errors.full_name}</p>}
             </div>
-          )}
-        </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleChange('email', e.target.value)}
+                placeholder="email@empresa.com"
+                disabled={!!client}
+              />
+              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                placeholder="(00) 00000-0000"
+                maxLength={20}
+              />
+            </div>
+
+            {!client && (
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="password">Senha *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                />
+                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Actions */}
