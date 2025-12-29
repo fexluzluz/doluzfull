@@ -1,1 +1,4 @@
 project_id = "wynyqbonsqxdmilnieba"
+
+[functions.import-mysql]
+verify_jwt = false
