@@ -1,0 +1,268 @@
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle } from 'lucide-react';
+import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
+import { Product } from '@/types/database';
+import ProductForm from '@/components/products/ProductForm';
+import StockMovementDialog from '@/components/products/StockMovementDialog';
+
+export default function Products() {
+  const { isAdmin, clientId } = useAuth();
+  const { toast } = useToast();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [stockProduct, setStockProduct] = useState<Product | null>(null);
+
+  const fetchProducts = async () => {
+    try {
+      let query = supabase
+        .from('products')
+        .select('*, clients(company_name)')
+        .order('name');
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      setProducts(data?.map(p => ({
+        ...p,
+        volume_m3: calculateVolumeM3(Number(p.height_cm), Number(p.width_cm), Number(p.depth_cm))
+      })) || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao carregar produtos',
+        description: 'Tente novamente mais tarde.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleDelete = async (product: Product) => {
+    if (!confirm(`Tem certeza que deseja excluir "${product.name}"?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', product.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Produto excluído com sucesso!' });
+      fetchProducts();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir produto',
+        description: error.message,
+      });
+    }
+  };
+
+  const handleFormSuccess = () => {
+    setIsFormOpen(false);
+    setEditingProduct(null);
+    fetchProducts();
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsFormOpen(true);
+  };
+
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <DashboardLayout>
+      <div className="page-header">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="page-title">Produtos</h1>
+            <p className="page-description">Gerencie o estoque de produtos</p>
+          </div>
+          {isAdmin && (
+            <Dialog open={isFormOpen} onOpenChange={(open) => {
+              setIsFormOpen(open);
+              if (!open) setEditingProduct(null);
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Produto
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingProduct ? 'Editar Produto' : 'Novo Produto'}
+                  </DialogTitle>
+                </DialogHeader>
+                <ProductForm
+                  product={editingProduct}
+                  onSuccess={handleFormSuccess}
+                  onCancel={() => {
+                    setIsFormOpen(false);
+                    setEditingProduct(null);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </div>
+
+      {/* Search */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome ou SKU..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Products Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Lista de Produtos ({filteredProducts.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Carregando produtos...
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchTerm ? 'Nenhum produto encontrado.' : 'Nenhum produto cadastrado.'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Nome</TableHead>
+                    {isAdmin && <TableHead>Cliente</TableHead>}
+                    <TableHead className="text-center">Qtd</TableHead>
+                    <TableHead className="text-right">Volume (m³)</TableHead>
+                    <TableHead className="text-right">Peso (kg)</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map((product) => {
+                    const isLowStock = product.quantity <= (product.min_stock_alert || 5);
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-mono text-sm">{product.sku}</TableCell>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-muted-foreground">
+                            {(product as any).clients?.company_name || '-'}
+                          </TableCell>
+                        )}
+                        <TableCell className="text-center">
+                          <span className={isLowStock ? 'text-destructive font-semibold' : ''}>
+                            {product.quantity}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatNumber(product.volume_m3 || 0, 4)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatNumber(Number(product.weight_kg) || 0, 2)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isLowStock ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Baixo
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Normal</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setStockProduct(product)}
+                              title="Movimentar estoque"
+                            >
+                              <ArrowUpDown className="h-4 w-4" />
+                            </Button>
+                            {isAdmin && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEdit(product)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDelete(product)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Stock Movement Dialog */}
+      <StockMovementDialog
+        product={stockProduct}
+        onClose={() => setStockProduct(null)}
+        onSuccess={() => {
+          setStockProduct(null);
+          fetchProducts();
+        }}
+      />
+    </DashboardLayout>
+  );
+}
