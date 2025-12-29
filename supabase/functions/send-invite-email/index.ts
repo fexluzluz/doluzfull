@@ -28,12 +28,38 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, full_name, company_name, temp_password, login_url }: InviteEmailRequest = await req.json();
 
-    console.log(`Sending invite email to ${email} for company ${company_name}`);
+    console.log(`Sending invite email to ${email} for company ${company_name}, isExistingUser: ${!temp_password}`);
+
+    const isExistingUser = !temp_password;
+
+    const credentialsSection = isExistingUser
+      ? `
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 25px 0;">
+              <p style="margin: 0; color: #374151;">
+                Você já possui uma conta no sistema. Use suas credenciais existentes para acessar.
+              </p>
+            </div>
+      `
+      : `
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 25px 0;">
+              <h3 style="margin: 0 0 15px 0; color: #374151; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Suas credenciais de acesso:</h3>
+              <p style="margin: 8px 0;"><strong>Email:</strong> ${email}</p>
+              <p style="margin: 8px 0;"><strong>Senha temporária:</strong> <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${temp_password}</code></p>
+            </div>
+      `;
+
+    const passwordNote = isExistingUser
+      ? ''
+      : `
+            <p style="font-size: 14px; color: #6b7280; margin-bottom: 25px;">
+              <strong>Importante:</strong> Recomendamos que você altere sua senha após o primeiro acesso.
+            </p>
+      `;
 
     const emailResponse = await resend.emails.send({
       from: "WMS DoLuz <onboarding@resend.dev>",
       to: [email],
-      subject: `Você foi convidado para gerenciar ${company_name}`,
+      subject: `Você foi ${isExistingUser ? 'adicionado' : 'convidado'} para gerenciar ${company_name}`,
       html: `
         <!DOCTYPE html>
         <html lang="pt-BR">
@@ -43,25 +69,19 @@ const handler = async (req: Request): Promise<Response> => {
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Bem-vindo ao WMS DoLuz!</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">${isExistingUser ? 'Nova Empresa Vinculada!' : 'Bem-vindo ao WMS DoLuz!'}</h1>
           </div>
           
           <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
             <p style="font-size: 16px; margin-bottom: 20px;">Olá <strong>${full_name}</strong>,</p>
             
             <p style="font-size: 16px; margin-bottom: 20px;">
-              Você foi convidado para colaborar na gestão da empresa <strong>${company_name}</strong> no sistema WMS DoLuz.
+              Você foi ${isExistingUser ? 'adicionado como colaborador' : 'convidado para colaborar'} na gestão da empresa <strong>${company_name}</strong> no sistema WMS DoLuz.
             </p>
             
-            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 25px 0;">
-              <h3 style="margin: 0 0 15px 0; color: #374151; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Suas credenciais de acesso:</h3>
-              <p style="margin: 8px 0;"><strong>Email:</strong> ${email}</p>
-              <p style="margin: 8px 0;"><strong>Senha temporária:</strong> <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${temp_password}</code></p>
-            </div>
+            ${credentialsSection}
             
-            <p style="font-size: 14px; color: #6b7280; margin-bottom: 25px;">
-              <strong>Importante:</strong> Recomendamos que você altere sua senha após o primeiro acesso.
-            </p>
+            ${passwordNote}
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${login_url}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
