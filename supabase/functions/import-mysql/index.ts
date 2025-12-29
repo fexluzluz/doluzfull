@@ -7,10 +7,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface TableStructure {
-  columns: unknown[];
-  sampleData: unknown[];
-  totalRows: number;
+interface ImportResults {
+  success: number;
+  failed: number;
+  errors: string[];
 }
 
 serve(async (req) => {
@@ -37,157 +37,310 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (action === 'get-structure') {
-      // Get all tables
-      const tables = await mysqlClient.query('SHOW TABLES');
-      const tableNames = tables.map((row: Record<string, string>) => Object.values(row)[0]);
-      
-      const structure: Record<string, TableStructure> = {};
-      
-      for (const tableName of tableNames) {
-        const columns = await mysqlClient.query(`DESCRIBE ${tableName}`);
-        const sampleData = await mysqlClient.query(`SELECT * FROM ${tableName} LIMIT 5`);
-        const countResult = await mysqlClient.query(`SELECT COUNT(*) as total FROM ${tableName}`);
-        
-        structure[tableName as string] = {
-          columns,
-          sampleData,
-          totalRows: countResult[0]?.total || 0,
-        };
-      }
-      
-      await mysqlClient.close();
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        tables: tableNames,
-        structure 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (action === 'import-clients') {
-      // Example: Import clients from a typical table structure
-      // Adjust based on actual MySQL table structure
-      const clients = await mysqlClient.query('SELECT * FROM clientes');
-      
-      console.log(`Found ${clients.length} clients to import`);
-      
-      const importResults = {
-        success: 0,
-        failed: 0,
-        errors: [] as string[],
+    if (action === 'import-all') {
+      const results = {
+        client: { success: false, id: null as string | null, error: null as string | null },
+        products: { success: 0, failed: 0, errors: [] as string[] },
+        shipments: { success: 0, failed: 0, errors: [] as string[] },
+        shipmentItems: { success: 0, failed: 0, errors: [] as string[] },
       };
 
-      for (const client of clients) {
-        try {
-          // Create user in auth
-          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: client.email || `${client.id}@imported.local`,
-            password: Math.random().toString(36).slice(-12),
-            email_confirm: true,
-            user_metadata: {
-              full_name: client.nome || client.razao_social,
-              imported: true,
-            },
-          });
+      // 1. Create Sulvendas client with user
+      console.log('Creating Sulvendas client...');
+      
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: 'sulvendas@gmail.com',
+        password: 'Sulvendas@2024',
+        email_confirm: true,
+        user_metadata: {
+          full_name: 'Sulvendas',
+        },
+      });
 
-          if (authError) {
-            importResults.failed++;
-            importResults.errors.push(`Client ${client.id}: ${authError.message}`);
-            continue;
-          }
-
-          // Get the profile created by trigger
-          const { data: profile } = await supabase
-            .from('profiles')
+      if (authError) {
+        // User might already exist
+        console.log('Auth error (user may exist):', authError.message);
+        
+        // Try to find existing user profile
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id, user_id')
+          .eq('email', 'sulvendas@gmail.com')
+          .maybeSingle();
+        
+        if (existingProfile) {
+          // Check if client already exists
+          const { data: existingClient } = await supabase
+            .from('clients')
             .select('id')
-            .eq('user_id', authData.user.id)
-            .single();
-
-          if (profile) {
-            // Create client record
-            await supabase.from('clients').insert({
+            .eq('profile_id', existingProfile.id)
+            .maybeSingle();
+          
+          if (existingClient) {
+            results.client.success = true;
+            results.client.id = existingClient.id;
+            console.log('Using existing client:', existingClient.id);
+          } else {
+            // Create client for existing profile
+            const { data: newClient, error: clientError } = await supabase
+              .from('clients')
+              .insert({
+                profile_id: existingProfile.id,
+                company_name: 'Sulvendas',
+              })
+              .select('id')
+              .single();
+            
+            if (clientError) {
+              results.client.error = clientError.message;
+            } else {
+              results.client.success = true;
+              results.client.id = newClient.id;
+              
+              // Add client role
+              await supabase.from('user_roles').insert({
+                user_id: existingProfile.user_id,
+                role: 'client',
+              });
+            }
+          }
+        } else {
+          results.client.error = authError.message;
+        }
+      } else if (authData.user) {
+        // Wait for trigger to create profile
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', authData.user.id)
+          .single();
+        
+        if (profile) {
+          const { data: newClient, error: clientError } = await supabase
+            .from('clients')
+            .insert({
               profile_id: profile.id,
-              company_name: client.razao_social || client.nome,
-              cnpj: client.cnpj,
-              address: client.endereco,
-              city: client.cidade,
-              state: client.estado || client.uf,
-              postal_code: client.cep,
-            });
-
+              company_name: 'Sulvendas',
+            })
+            .select('id')
+            .single();
+          
+          if (clientError) {
+            results.client.error = clientError.message;
+          } else {
+            results.client.success = true;
+            results.client.id = newClient.id;
+            
             // Add client role
             await supabase.from('user_roles').insert({
               user_id: authData.user.id,
               role: 'client',
             });
-
-            importResults.success++;
           }
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          importResults.failed++;
-          importResults.errors.push(`Client ${client.id}: ${errorMessage}`);
         }
       }
 
-      await mysqlClient.close();
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        results: importResults 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+      if (!results.client.id) {
+        await mysqlClient.close();
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Failed to create client: ' + results.client.error,
+          results 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    if (action === 'import-products') {
-      const products = await mysqlClient.query('SELECT * FROM produtos');
-      
-      console.log(`Found ${products.length} products to import`);
-      
-      const importResults = {
-        success: 0,
-        failed: 0,
-        errors: [] as string[],
-      };
+      const clientId = results.client.id;
+      console.log('Client ID:', clientId);
 
-      for (const product of products) {
+      // 2. Import products from estoque
+      console.log('Importing products...');
+      const estoque = await mysqlClient.query('SELECT * FROM estoque');
+      const skuToProductId: Record<string, string> = {};
+      
+      for (const item of estoque) {
         try {
-          // Map old client_id to new client_id (you'll need to maintain a mapping)
-          const { error } = await supabase.from('products').insert({
-            sku: product.sku || product.codigo,
-            name: product.nome || product.descricao,
-            description: product.descricao,
-            height_cm: product.altura || 0,
-            width_cm: product.largura || 0,
-            depth_cm: product.profundidade || product.comprimento || 0,
-            weight_kg: product.peso || 0,
-            quantity: product.quantidade || product.estoque || 0,
-            min_stock_alert: product.estoque_minimo || 5,
-            // client_id needs to be mapped from old to new
-          });
+          const { data: product, error } = await supabase
+            .from('products')
+            .insert({
+              client_id: clientId,
+              sku: String(item.sku),
+              name: item.descricao || `Produto ${item.sku}`,
+              description: item.descricao,
+              quantity: item.quantidade_disponivel || 0,
+              height_cm: 0,
+              width_cm: 0,
+              depth_cm: 0,
+              weight_kg: 0,
+              min_stock_alert: 5,
+            })
+            .select('id')
+            .single();
 
           if (error) {
-            importResults.failed++;
-            importResults.errors.push(`Product ${product.id}: ${error.message}`);
+            results.products.failed++;
+            results.products.errors.push(`SKU ${item.sku}: ${error.message}`);
           } else {
-            importResults.success++;
+            results.products.success++;
+            skuToProductId[String(item.sku)] = product.id;
           }
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err);
-          importResults.failed++;
-          importResults.errors.push(`Product ${product.id}: ${errorMessage}`);
+          results.products.failed++;
+          results.products.errors.push(`SKU ${item.sku}: ${errorMessage}`);
         }
       }
+
+      console.log(`Products imported: ${results.products.success} success, ${results.products.failed} failed`);
+
+      // 3. Import shipments from pedidos
+      console.log('Importing shipments...');
+      const pedidos = await mysqlClient.query('SELECT * FROM pedidos');
+      const pedidoIdToShipmentId: Record<number, string> = {};
+      
+      // Get admin user for created_by
+      const { data: adminProfile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('email', 'sulvendas@gmail.com')
+        .single();
+      
+      const createdBy = adminProfile?.user_id;
+
+      for (const pedido of pedidos) {
+        try {
+          // Map status
+          let status = 'pending';
+          if (pedido.enviado === 'Sim') {
+            status = 'shipped';
+          }
+
+          // Build address
+          const addressParts = [
+            pedido.enderecoEntrega,
+            pedido.numeroEntrega ? `nº ${pedido.numeroEntrega}` : '',
+            pedido.complementoEntrega,
+            pedido.bairroEntrega,
+          ].filter(Boolean);
+
+          const { data: shipment, error } = await supabase
+            .from('shipment_requests')
+            .insert({
+              client_id: clientId,
+              status,
+              recipient_name: pedido.nomeComprador || 'N/A',
+              recipient_phone: pedido.telefoneComprador || null,
+              recipient_address: addressParts.join(', ') || pedido.obs || 'Ver observações',
+              recipient_city: pedido.cidadeEntrega || 'N/A',
+              recipient_state: pedido.estadoEntrega || 'SP',
+              recipient_postal_code: pedido.cepEntrega?.trim() || '00000000',
+              shipping_label_url: pedido.linketiqueta || null,
+              invoice_url: pedido.linkDeclaracao || null,
+              tracking_code: pedido.rastreio || null,
+              notes: pedido.obs || null,
+              created_by: createdBy,
+              created_at: pedido.dataCriacao || new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+
+          if (error) {
+            results.shipments.failed++;
+            results.shipments.errors.push(`Pedido ${pedido.id}: ${error.message}`);
+          } else {
+            results.shipments.success++;
+            pedidoIdToShipmentId[pedido.id] = shipment.id;
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          results.shipments.failed++;
+          results.shipments.errors.push(`Pedido ${pedido.id}: ${errorMessage}`);
+        }
+      }
+
+      console.log(`Shipments imported: ${results.shipments.success} success, ${results.shipments.failed} failed`);
+
+      // 4. Import shipment items from itens_pedido
+      console.log('Importing shipment items...');
+      const itensPedido = await mysqlClient.query('SELECT * FROM itens_pedido');
+      
+      for (const item of itensPedido) {
+        try {
+          const shipmentId = pedidoIdToShipmentId[item.pedido_id];
+          const productId = skuToProductId[String(item.sku)];
+          
+          if (!shipmentId) {
+            results.shipmentItems.failed++;
+            results.shipmentItems.errors.push(`Item ${item.id}: Shipment not found for pedido_id ${item.pedido_id}`);
+            continue;
+          }
+          
+          if (!productId) {
+            // Create product on the fly if not found
+            const { data: newProduct, error: productError } = await supabase
+              .from('products')
+              .insert({
+                client_id: clientId,
+                sku: String(item.sku),
+                name: `Produto ${item.sku}`,
+                quantity: 0,
+                height_cm: 0,
+                width_cm: 0,
+                depth_cm: 0,
+                weight_kg: 0,
+                min_stock_alert: 5,
+              })
+              .select('id')
+              .single();
+            
+            if (productError) {
+              results.shipmentItems.failed++;
+              results.shipmentItems.errors.push(`Item ${item.id}: Could not create product ${item.sku}`);
+              continue;
+            }
+            
+            skuToProductId[String(item.sku)] = newProduct.id;
+          }
+
+          const finalProductId = skuToProductId[String(item.sku)];
+
+          const { error } = await supabase
+            .from('shipment_items')
+            .insert({
+              shipment_id: shipmentId,
+              product_id: finalProductId,
+              quantity: item.quantidade,
+            });
+
+          if (error) {
+            results.shipmentItems.failed++;
+            results.shipmentItems.errors.push(`Item ${item.id}: ${error.message}`);
+          } else {
+            results.shipmentItems.success++;
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          results.shipmentItems.failed++;
+          results.shipmentItems.errors.push(`Item ${item.id}: ${errorMessage}`);
+        }
+      }
+
+      console.log(`Shipment items imported: ${results.shipmentItems.success} success, ${results.shipmentItems.failed} failed`);
 
       await mysqlClient.close();
       
       return new Response(JSON.stringify({ 
         success: true, 
-        results: importResults 
+        results,
+        summary: {
+          products: `${results.products.success} importados, ${results.products.failed} falharam`,
+          shipments: `${results.shipments.success} importados, ${results.shipments.failed} falharam`,
+          shipmentItems: `${results.shipmentItems.success} importados, ${results.shipmentItems.failed} falharam`,
+        }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -196,7 +349,7 @@ serve(async (req) => {
     await mysqlClient.close();
     
     return new Response(JSON.stringify({ 
-      error: 'Invalid action. Use: get-structure, import-clients, import-products' 
+      error: 'Invalid action. Use: import-all' 
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
