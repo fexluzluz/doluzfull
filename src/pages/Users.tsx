@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Users as UsersIcon, Shield, Building2, UserCog, Loader2, KeyRound, UserX, UserCheck } from 'lucide-react';
+import { Search, Users as UsersIcon, Shield, Building2, UserCog, Loader2, KeyRound, UserX, UserCheck, Eye } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { Navigate } from 'react-router-dom';
 import { AppRole } from '@/types/database';
@@ -257,6 +257,71 @@ export default function Users() {
     }
   };
 
+  const handleImpersonate = async (user: UserData) => {
+    if (!confirm(`Acessar o sistema como ${user.full_name}? Você poderá voltar para sua conta de admin a qualquer momento.`)) return;
+    
+    setActionLoading(`impersonate-${user.id}`);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      // Save admin session before impersonating
+      if (sessionData.session) {
+        localStorage.setItem('admin_session', JSON.stringify({
+          access_token: sessionData.session.access_token,
+          refresh_token: sessionData.session.refresh_token,
+        }));
+      }
+      
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: {
+          action: 'impersonate',
+          user_id: user.user_id,
+          email: user.email,
+        },
+        headers: {
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Use verifyOtp with the token_hash to get a valid session
+      if (data.token_hash && data.email) {
+        const { error: otpError } = await supabase.auth.verifyOtp({
+          email: data.email,
+          token_hash: data.token_hash,
+          type: 'magiclink',
+        });
+        
+        if (otpError) throw otpError;
+        
+        // Set impersonation flag
+        localStorage.setItem('impersonating', 'true');
+        localStorage.setItem('impersonated_user', user.full_name);
+        
+        toast({ title: `Acessando como ${user.full_name}` });
+        
+        // Redirect to home
+        window.location.href = '/';
+      } else {
+        throw new Error('Não foi possível criar sessão para o usuário');
+      }
+    } catch (error: any) {
+      console.error('Error impersonating user:', error);
+      localStorage.removeItem('admin_session');
+      localStorage.removeItem('impersonating');
+      localStorage.removeItem('impersonated_user');
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao acessar como usuário',
+        description: error.message,
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const getRoleBadge = (role: AppRole | null, isEmployee: boolean) => {
     if (role === 'admin') {
       return <Badge variant="default" className="bg-primary"><Shield className="h-3 w-3 mr-1" /> Admin</Badge>;
@@ -340,6 +405,7 @@ export default function Users() {
                     const isUpdating = updatingRole === user.user_id;
                     const isResetting = actionLoading === `reset-${user.id}`;
                     const isToggling = actionLoading === `toggle-${user.id}`;
+                    const isImpersonating = actionLoading === `impersonate-${user.id}`;
                     
                     return (
                       <TableRow key={user.id} className={!user.is_active ? 'opacity-50' : ''}>
@@ -382,6 +448,20 @@ export default function Users() {
                         <TableCell className="text-right">
                           {!isCurrentUser && (
                             <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleImpersonate(user)}
+                                disabled={isImpersonating || !user.is_active}
+                                title="Acessar como este usuário"
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                {isImpersonating ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"

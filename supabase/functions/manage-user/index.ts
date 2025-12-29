@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface ManageUserRequest {
-  action: "reset_password" | "toggle_active";
+  action: "reset_password" | "toggle_active" | "impersonate";
   user_id: string;
   email?: string;
   is_active?: boolean;
@@ -227,6 +227,41 @@ serve(async (req: Request): Promise<Response> => {
 
       return new Response(
         JSON.stringify({ success: true, message: is_active ? "Usuário ativado" : "Usuário desativado" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "impersonate") {
+      if (!user_id || !email) {
+        return new Response(
+          JSON.stringify({ error: "User ID e email são obrigatórios para impersonar" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Generate a magic link for the target user
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email: email,
+      });
+
+      if (linkError) {
+        console.error("Error generating magic link:", linkError);
+        return new Response(
+          JSON.stringify({ error: linkError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`Admin impersonating user ${user_id}, token hash generated`);
+
+      // Return the token hash for the frontend to use with verifyOtp
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          email: email,
+          token_hash: linkData.properties?.hashed_token,
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
