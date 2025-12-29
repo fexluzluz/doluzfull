@@ -60,6 +60,7 @@ export type Database = {
           cnpj: string | null
           company_name: string
           created_at: string
+          handling_fee_per_item: number | null
           id: string
           postal_code: string | null
           profile_id: string
@@ -73,6 +74,7 @@ export type Database = {
           cnpj?: string | null
           company_name: string
           created_at?: string
+          handling_fee_per_item?: number | null
           id?: string
           postal_code?: string | null
           profile_id: string
@@ -86,6 +88,7 @@ export type Database = {
           cnpj?: string | null
           company_name?: string
           created_at?: string
+          handling_fee_per_item?: number | null
           id?: string
           postal_code?: string | null
           profile_id?: string
@@ -236,6 +239,7 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string
+          handling_total: number | null
           id: string
           invoice_url: string | null
           notes: string | null
@@ -256,6 +260,7 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by: string
+          handling_total?: number | null
           id?: string
           invoice_url?: string | null
           notes?: string | null
@@ -276,6 +281,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string
+          handling_total?: number | null
           id?: string
           invoice_url?: string | null
           notes?: string | null

@@ -58,8 +58,8 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
         updateData.tracking_code = trackingCode.trim();
       }
 
-      // If status is shipped or delivered and has items, update product quantities
-      if ((status === 'shipped' || status === 'processing') && shipment.status === 'pending') {
+      // If cancelling an order, reverse the stock
+      if (status === 'cancelled' && shipment.status !== 'cancelled') {
         // Fetch items
         const { data: items } = await supabase
           .from('shipment_items')
@@ -76,27 +76,30 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
               .single();
 
             if (product) {
-              const newQuantity = product.quantity - item.quantity;
+              const newQuantity = product.quantity + item.quantity;
 
-              // Update product quantity
+              // Update product quantity (return to stock)
               await supabase
                 .from('products')
-                .update({ quantity: Math.max(0, newQuantity) })
+                .update({ quantity: newQuantity })
                 .eq('id', item.product_id);
 
-              // Create stock movement
+              // Create stock movement (entry - reversal)
               await supabase.from('stock_movements').insert({
                 product_id: item.product_id,
-                movement_type: 'exit',
+                movement_type: 'entry',
                 quantity: item.quantity,
                 previous_quantity: product.quantity,
-                new_quantity: Math.max(0, newQuantity),
-                notes: `Saída para envio #${shipment.id.slice(0, 8)}`,
+                new_quantity: newQuantity,
+                notes: `Estorno - Cancelamento do envio #${shipment.id.slice(0, 8)}`,
                 created_by: user?.id,
               });
             }
           }
         }
+
+        // Reset handling total (estorno do manuseio)
+        updateData.handling_total = 0;
       }
 
       const { error } = await supabase

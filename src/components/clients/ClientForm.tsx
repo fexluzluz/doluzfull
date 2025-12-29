@@ -62,6 +62,7 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
     city: client?.city || '',
     state: client?.state || '',
     postal_code: client?.postal_code || '',
+    handling_fee_per_item: client?.handling_fee_per_item || '4.50',
     // User data (only for new clients)
     full_name: '',
     email: '',
@@ -123,6 +124,7 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
             city: data.city || '',
             state: data.state || '',
             postal_code: data.postal_code || '',
+            handling_fee_per_item: data.handling_fee_per_item || '4.50',
             full_name: profile?.full_name || '',
             email: profile?.email || '',
             phone: profile?.phone || '',
@@ -268,6 +270,7 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
             city: formData.city || null,
             state: formData.state || null,
             postal_code: formData.postal_code || null,
+            handling_fee_per_item: parseFloat(formData.handling_fee_per_item) || 4.50,
           })
           .eq('id', client.id);
 
@@ -345,6 +348,7 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
           city: formData.city || null,
           state: formData.state || null,
           postal_code: formData.postal_code || null,
+          handling_fee_per_item: parseFloat(formData.handling_fee_per_item) || 4.50,
         });
 
         if (clientError) throw clientError;
@@ -479,7 +483,23 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
+          </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="handling_fee_per_item">Valor Manuseio por Item (R$)</Label>
+            <Input
+              id="handling_fee_per_item"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.handling_fee_per_item}
+              onChange={(e) => handleChange('handling_fee_per_item', e.target.value)}
+              placeholder="4.50"
+            />
+            <p className="text-xs text-muted-foreground">
+              Valor cobrado por cada item nos envios deste cliente
+            </p>
           </div>
         </div>
       </div>

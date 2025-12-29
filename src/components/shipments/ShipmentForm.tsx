@@ -52,6 +52,7 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
   const [items, setItems] = useState<ProductItem[]>([{ product_id: '', quantity: 1 }]);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [labelFile, setLabelFile] = useState<File | null>(null);
+  const [handlingFee, setHandlingFee] = useState<number>(4.50);
 
   const [formData, setFormData] = useState({
     recipient_name: '',
@@ -69,11 +70,23 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
       // Fetch all clients for admin
       supabase
         .from('clients')
-        .select('id, company_name')
+        .select('id, company_name, handling_fee_per_item')
         .order('company_name')
         .then(({ data }) => setClients(data || []));
+    } else if (clientId) {
+      // Fetch handling fee for current client
+      supabase
+        .from('clients')
+        .select('handling_fee_per_item')
+        .eq('id', clientId)
+        .single()
+        .then(({ data }) => {
+          if (data?.handling_fee_per_item) {
+            setHandlingFee(Number(data.handling_fee_per_item));
+          }
+        });
     }
-  }, [isAdmin]);
+  }, [isAdmin, clientId]);
 
   useEffect(() => {
     // Fetch products based on selected client
@@ -151,6 +164,20 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
       })
     );
   };
+
+  // Update handling fee when admin selects a client
+  useEffect(() => {
+    if (isAdmin && selectedClientId) {
+      const client = clients.find((c) => c.id === selectedClientId);
+      if (client?.handling_fee_per_item) {
+        setHandlingFee(Number(client.handling_fee_per_item));
+      }
+    }
+  }, [isAdmin, selectedClientId, clients]);
+
+  // Calculate total items and handling
+  const totalItems = items.reduce((sum, item) => sum + (item.product_id ? item.quantity : 0), 0);
+  const totalHandling = totalItems * handlingFee;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,7 +269,7 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
         labelUrl = urlData.publicUrl;
       }
 
-      // Create shipment request
+      // Create shipment request with handling total
       const { data: shipmentData, error: shipmentError } = await supabase
         .from('shipment_requests')
         .insert({
@@ -259,6 +286,7 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
           status: 'pending',
           invoice_url: invoiceUrl,
           shipping_label_url: labelUrl,
+          handling_total: totalHandling,
         })
         .select()
         .single();
@@ -277,6 +305,31 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
         .insert(itemsToInsert);
 
       if (itemsError) throw itemsError;
+
+      // Deduct from stock and create stock movements
+      for (const item of validItems) {
+        const product = products.find((p) => p.id === item.product_id);
+        if (product) {
+          const newQuantity = product.quantity - item.quantity;
+
+          // Update product quantity
+          await supabase
+            .from('products')
+            .update({ quantity: Math.max(0, newQuantity) })
+            .eq('id', item.product_id);
+
+          // Create stock movement (exit)
+          await supabase.from('stock_movements').insert({
+            product_id: item.product_id,
+            movement_type: 'exit',
+            quantity: item.quantity,
+            previous_quantity: product.quantity,
+            new_quantity: Math.max(0, newQuantity),
+            notes: `Saída para envio #${shipmentData.id.slice(0, 8)}`,
+            created_by: user?.id,
+          });
+        }
+      }
 
       toast({ title: 'Requisição de envio criada com sucesso!' });
       onSuccess();
@@ -375,6 +428,18 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
             </Card>
           ))}
         </div>
+
+        {/* Handling fee summary */}
+        {totalItems > 0 && (
+          <Card className="mt-4 bg-muted/50">
+            <CardContent className="p-3">
+              <div className="flex justify-between items-center text-sm">
+                <span>Total de itens: <strong>{totalItems}</strong></span>
+                <span>Manuseio: <strong>R$ {totalHandling.toFixed(2)}</strong> ({totalItems} x R$ {handlingFee.toFixed(2)})</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Separator />
