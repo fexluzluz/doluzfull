@@ -16,6 +16,7 @@ import { Product, ProductLocation } from '@/types/database';
 import ProductForm from '@/components/products/ProductForm';
 import StockMovementDialog from '@/components/products/StockMovementDialog';
 import StockBalanceDialog from '@/components/products/StockBalanceDialog';
+import ProductDetailsDialog from '@/components/products/ProductDetailsDialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProductWithLocations extends Product {
@@ -42,6 +43,7 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [balanceProduct, setBalanceProduct] = useState<Product | null>(null);
+  const [detailsProduct, setDetailsProduct] = useState<ProductWithLocations | null>(null);
 
   const fetchProducts = async () => {
     try {
@@ -248,8 +250,12 @@ export default function Products() {
                 <TableBody>
                   {filteredProducts.map((product) => {
                     const isLowStock = product.quantity <= (product.min_stock_alert || 5);
-                    return (
-                      <TableRow key={product.id}>
+                      return (
+                        <TableRow 
+                          key={product.id} 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setDetailsProduct(product)}
+                        >
                         <TableCell className="font-mono text-sm">{product.sku}</TableCell>
                         <TableCell className="font-medium">{product.name}</TableCell>
                         {isAdmin && (
@@ -321,7 +327,7 @@ export default function Products() {
                             <Badge variant="secondary">Normal</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="ghost"
@@ -341,23 +347,23 @@ export default function Products() {
                                 <ClipboardCheck className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(product)}
+                              title="Editar produto"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             {isAdmin && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEdit(product)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDelete(product)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(product)}
+                                title="Excluir produto"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -389,6 +395,13 @@ export default function Products() {
           setBalanceProduct(null);
           fetchProducts();
         }}
+      />
+
+      {/* Product Details Dialog */}
+      <ProductDetailsDialog
+        product={detailsProduct}
+        onClose={() => setDetailsProduct(null)}
+        isAdmin={isAdmin}
       />
     </DashboardLayout>
   );
