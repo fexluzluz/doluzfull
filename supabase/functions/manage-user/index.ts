@@ -70,25 +70,37 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`Managing user - Action: ${action}, User ID: ${user_id}`);
 
     if (action === "reset_password") {
-      if (!email) {
+      if (!email || !profile_id) {
         return new Response(
-          JSON.stringify({ error: "Email é obrigatório para redefinir senha" }),
+          JSON.stringify({ error: "Email e profile_id são obrigatórios para redefinir senha" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Generate a password reset link
-      const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-        type: "recovery",
-        email: email,
+      // Generate a temporary password
+      const tempPassword = Math.random().toString(36).slice(-12) + "A1!";
+
+      // Update user password using admin API
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
+        password: tempPassword,
       });
 
-      if (error) {
-        console.error("Error generating reset link:", error);
+      if (updateError) {
+        console.error("Error updating password:", updateError);
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ error: updateError.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Set must_change_password to true
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .update({ must_change_password: true })
+        .eq("id", profile_id);
+
+      if (profileError) {
+        console.error("Error updating profile:", profileError);
       }
 
       // Send email with Resend
@@ -96,18 +108,15 @@ serve(async (req: Request): Promise<Response> => {
       if (resendApiKey) {
         const resend = new Resend(resendApiKey);
 
-        const resetLink = data.properties?.action_link;
-
         await resend.emails.send({
           from: "Do Luz Full <noreply@doluz.com.br>",
           to: [email],
-          subject: "Redefinição de Senha - Do Luz Full",
+          subject: "Senha Redefinida - Do Luz Full",
           html: `
-            <h1>Redefinição de Senha</h1>
-            <p>Você recebeu este email porque um administrador solicitou a redefinição da sua senha.</p>
-            <p>Clique no link abaixo para criar uma nova senha:</p>
-            <p><a href="${resetLink}">Redefinir minha senha</a></p>
-            <p>Se você não solicitou esta redefinição, ignore este email.</p>
+            <h1>Sua Senha Foi Redefinida</h1>
+            <p>Um administrador redefiniu sua senha.</p>
+            <p><strong>Sua nova senha temporária é:</strong> ${tempPassword}</p>
+            <p>Você será solicitado a criar uma nova senha no próximo login.</p>
             <p>Atenciosamente,<br>Equipe Do Luz Full</p>
           `,
         });
@@ -116,7 +125,7 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: "Email de redefinição enviado" }),
+        JSON.stringify({ success: true, message: "Senha redefinida e email enviado" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
