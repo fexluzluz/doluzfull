@@ -15,6 +15,7 @@ import Locations from "./pages/Locations";
 import Receiving from "./pages/Receiving";
 import Picking from "./pages/Picking";
 import Reports from "./pages/Reports";
+import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/receiving" element={<Receiving />} />
             <Route path="/picking" element={<Picking />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/users" element={<Users />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
