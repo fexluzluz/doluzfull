@@ -287,9 +287,8 @@ export default function Users() {
       if (data?.error) throw new Error(data.error);
 
       // Use verifyOtp with the token_hash to get a valid session
-      if (data.token_hash && data.email) {
+      if (data.token_hash) {
         const { error: otpError } = await supabase.auth.verifyOtp({
-          email: data.email,
           token_hash: data.token_hash,
           type: 'magiclink',
         });
