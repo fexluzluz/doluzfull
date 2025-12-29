@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSystemLog } from '@/hooks/useSystemLog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ const statusOptions = [
 export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: ShipmentStatusDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState(shipment?.status || 'pending');
   const [trackingCode, setTrackingCode] = useState(shipment?.tracking_code || '');
@@ -108,6 +110,22 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
         .eq('id', shipment.id);
 
       if (error) throw error;
+
+      await logAction({
+        action_type: status === 'cancelled' ? 'shipment_cancelled' : 'shipment_status_changed',
+        entity_type: 'shipment',
+        entity_id: shipment.id,
+        description: status === 'cancelled' 
+          ? `Pedido de ${shipment.recipient_name} cancelado (estoque estornado)`
+          : `Status do pedido de ${shipment.recipient_name} alterado: ${translateShipmentStatus(shipment.status)} → ${translateShipmentStatus(status)}`,
+        details: { 
+          recipient: shipment.recipient_name,
+          old_status: shipment.status,
+          new_status: status,
+          tracking_code: trackingCode || null,
+        },
+        client_id: shipment.client_id,
+      });
 
       toast({ title: 'Status atualizado com sucesso!' });
       onSuccess();

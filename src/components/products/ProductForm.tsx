@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useSystemLog } from '@/hooks/useSystemLog';
 import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 import { Product } from '@/types/database';
@@ -32,6 +33,7 @@ interface ProductFormProps {
 
 export default function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) {
   const { toast } = useToast();
+  const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
   const [clients, setClients] = useState<{ id: string; company_name: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -116,10 +118,19 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           .eq('id', product.id);
 
         if (error) throw error;
+        
+        await logAction({
+          action_type: 'product_updated',
+          entity_type: 'product',
+          entity_id: product.id,
+          description: `Produto "${dataToValidate.name}" (SKU: ${dataToValidate.sku}) atualizado`,
+          details: { sku: dataToValidate.sku, name: dataToValidate.name },
+        });
+        
         toast({ title: 'Produto atualizado com sucesso!' });
       } else {
         // Create
-        const { error } = await supabase.from('products').insert({
+        const { data: newProduct, error } = await supabase.from('products').insert({
           sku: dataToValidate.sku,
           name: dataToValidate.name,
           description: dataToValidate.description || null,
@@ -130,9 +141,19 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           quantity: dataToValidate.quantity,
           min_stock_alert: dataToValidate.min_stock_alert,
           client_id: dataToValidate.client_id,
-        });
+        }).select().single();
 
         if (error) throw error;
+        
+        await logAction({
+          action_type: 'product_created',
+          entity_type: 'product',
+          entity_id: newProduct?.id,
+          description: `Produto "${dataToValidate.name}" (SKU: ${dataToValidate.sku}) criado com ${dataToValidate.quantity} unidades`,
+          details: { sku: dataToValidate.sku, name: dataToValidate.name, quantity: dataToValidate.quantity },
+          client_id: dataToValidate.client_id,
+        });
+        
         toast({ title: 'Produto criado com sucesso!' });
       }
 

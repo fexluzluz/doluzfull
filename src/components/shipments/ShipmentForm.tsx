@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSystemLog } from '@/hooks/useSystemLog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +44,7 @@ interface ProductItem {
 export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps) {
   const { user, isAdmin, clientId } = useAuth();
   const { toast } = useToast();
+  const { logAction } = useSystemLog();
   const { lookupCep, isLoading: isCepLoading } = useCepLookup();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -330,6 +332,21 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
           });
         }
       }
+
+      await logAction({
+        action_type: 'shipment_created',
+        entity_type: 'shipment',
+        entity_id: shipmentData.id,
+        description: `Pedido criado para ${formData.recipient_name} (${formData.recipient_city}/${formData.recipient_state}) com ${totalItems} itens`,
+        details: { 
+          recipient: formData.recipient_name,
+          city: formData.recipient_city,
+          state: formData.recipient_state,
+          items_count: totalItems,
+          handling_total: totalHandling,
+        },
+        client_id: clientToUse,
+      });
 
       toast({ title: 'Requisição de envio criada com sucesso!' });
       onSuccess();
