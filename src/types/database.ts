@@ -6,6 +6,8 @@ export type ShipmentStatus = 'pending' | 'processing' | 'shipped' | 'delivered' 
 
 export type ReceivingStatus = 'pending' | 'inspecting' | 'completed' | 'cancelled';
 
+export type PickingStatus = 'pending' | 'picking' | 'picked' | 'packing' | 'packed' | 'ready';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -253,4 +255,40 @@ export interface ReceivingOrderFormData {
   expected_date?: string;
   notes?: string;
   items: { product_id: string; expected_quantity: number }[];
+}
+
+// Picking orders
+export interface PickingOrder {
+  id: string;
+  shipment_id: string;
+  status: PickingStatus;
+  picker_id: string | null;
+  packer_id: string | null;
+  picking_started_at: string | null;
+  picking_completed_at: string | null;
+  packing_started_at: string | null;
+  packing_completed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  shipment?: ShipmentRequest;
+  items?: PickingItem[];
+}
+
+export interface PickingItem {
+  id: string;
+  picking_order_id: string;
+  shipment_item_id: string;
+  product_id: string;
+  location_id: string | null;
+  quantity: number;
+  picked_quantity: number;
+  picked_at: string | null;
+  picked_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  product?: Product;
+  location?: WarehouseLocation;
 }

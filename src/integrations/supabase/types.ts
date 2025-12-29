@@ -127,6 +127,130 @@ export type Database = {
         }
         Relationships: []
       }
+      picking_items: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string | null
+          picked_at: string | null
+          picked_by: string | null
+          picked_quantity: number | null
+          picking_order_id: string
+          product_id: string
+          quantity: number
+          shipment_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          picked_at?: string | null
+          picked_by?: string | null
+          picked_quantity?: number | null
+          picking_order_id: string
+          product_id: string
+          quantity: number
+          shipment_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          picked_at?: string | null
+          picked_by?: string | null
+          picked_quantity?: number | null
+          picking_order_id?: string
+          product_id?: string
+          quantity?: number
+          shipment_item_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "picking_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "picking_items_picking_order_id_fkey"
+            columns: ["picking_order_id"]
+            isOneToOne: false
+            referencedRelation: "picking_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "picking_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "picking_items_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      picking_orders: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          packer_id: string | null
+          packing_completed_at: string | null
+          packing_started_at: string | null
+          picker_id: string | null
+          picking_completed_at: string | null
+          picking_started_at: string | null
+          shipment_id: string
+          status: Database["public"]["Enums"]["picking_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          packer_id?: string | null
+          packing_completed_at?: string | null
+          packing_started_at?: string | null
+          picker_id?: string | null
+          picking_completed_at?: string | null
+          picking_started_at?: string | null
+          shipment_id: string
+          status?: Database["public"]["Enums"]["picking_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          packer_id?: string | null
+          packing_completed_at?: string | null
+          packing_started_at?: string | null
+          picker_id?: string | null
+          picking_completed_at?: string | null
+          picking_started_at?: string | null
+          shipment_id?: string
+          status?: Database["public"]["Enums"]["picking_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "picking_orders_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: true
+            referencedRelation: "shipment_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_locations: {
         Row: {
           created_at: string
@@ -653,6 +777,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "client" | "employee"
+      picking_status:
+        | "pending"
+        | "picking"
+        | "picked"
+        | "packing"
+        | "packed"
+        | "ready"
       receiving_status: "pending" | "inspecting" | "completed" | "cancelled"
       shipment_status:
         | "pending"
@@ -788,6 +919,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "client", "employee"],
+      picking_status: [
+        "pending",
+        "picking",
+        "picked",
+        "packing",
+        "packed",
+        "ready",
+      ],
       receiving_status: ["pending", "inspecting", "completed", "cancelled"],
       shipment_status: [
         "pending",
