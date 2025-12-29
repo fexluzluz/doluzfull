@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLogAccess } from '@/hooks/useLogAccess';
 import { Navigate } from 'react-router-dom';
-import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText, MapPin, PackageCheck, ClipboardList, BarChart3, UserCog } from 'lucide-react';
+import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText, MapPin, PackageCheck, ClipboardList, BarChart3, UserCog, ArrowLeft } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import ChangePasswordDialog from '@/components/auth/ChangePasswordDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -17,6 +19,50 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, profile, isAdmin, isLoading, signOut, mustChangePassword, refreshProfile } = useAuth();
   const { hasLogAccess } = useLogAccess();
   const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+  
+  // Check if impersonating
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonatedUser, setImpersonatedUser] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const impersonating = localStorage.getItem('impersonating') === 'true';
+    const userName = localStorage.getItem('impersonated_user');
+    setIsImpersonating(impersonating);
+    setImpersonatedUser(userName);
+  }, []);
+  
+  const handleExitImpersonation = async () => {
+    try {
+      const adminSessionStr = localStorage.getItem('admin_session');
+      if (!adminSessionStr) {
+        throw new Error('Sessão de admin não encontrada');
+      }
+      
+      const adminSession = JSON.parse(adminSessionStr);
+      
+      // Restore admin session
+      await supabase.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token,
+      });
+      
+      // Clear impersonation flags
+      localStorage.removeItem('impersonating');
+      localStorage.removeItem('impersonated_user');
+      localStorage.removeItem('admin_session');
+      
+      toast({ title: 'Voltando para sua conta de admin' });
+      
+      // Redirect to users page
+      window.location.href = '/users';
+    } catch (error: any) {
+      console.error('Error exiting impersonation:', error);
+      // If restore fails, sign out and redirect to auth
+      await signOut();
+      window.location.href = '/auth';
+    }
+  };
 
   if (isLoading) {
     return (
@@ -147,6 +193,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto">
+        {/* Impersonation Banner */}
+        {isImpersonating && (
+          <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">
+                👁️ Você está acessando como: {impersonatedUser || 'outro usuário'}
+              </span>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleExitImpersonation}
+              className="bg-white text-amber-600 hover:bg-amber-50"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar para Admin
+            </Button>
+          </div>
+        )}
         <div className="p-4 md:p-6">
           {children}
         </div>
