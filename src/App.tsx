@@ -13,6 +13,7 @@ import Shipments from "./pages/Shipments";
 import Logs from "./pages/Logs";
 import Locations from "./pages/Locations";
 import Receiving from "./pages/Receiving";
+import Picking from "./pages/Picking";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/logs" element={<Logs />} />
             <Route path="/locations" element={<Locations />} />
             <Route path="/receiving" element={<Receiving />} />
+            <Route path="/picking" element={<Picking />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

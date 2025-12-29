@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLogAccess } from '@/hooks/useLogAccess';
 import { Navigate } from 'react-router-dom';
-import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText, MapPin, PackageCheck } from 'lucide-react';
+import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText, MapPin, PackageCheck, ClipboardList } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -33,6 +33,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/products', icon: BoxesIcon, label: 'Produtos' },
     { to: '/receiving', icon: PackageCheck, label: 'Recebimento' },
+    { to: '/picking', icon: ClipboardList, label: 'Picking' },
     { to: '/shipments', icon: Truck, label: 'Envios' },
     { to: '/movements', icon: ArrowDownUp, label: 'Movimentações' },
   ];
