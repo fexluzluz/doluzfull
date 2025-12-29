@@ -401,6 +401,7 @@ export default function Products() {
       <ProductDetailsDialog
         product={detailsProduct}
         onClose={() => setDetailsProduct(null)}
+        onEdit={handleEdit}
         isAdmin={isAdmin}
       />
     </DashboardLayout>
