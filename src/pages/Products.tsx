@@ -10,18 +10,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck } from 'lucide-react';
+import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck, MapPin } from 'lucide-react';
 import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
-import { Product } from '@/types/database';
+import { Product, ProductLocation } from '@/types/database';
 import ProductForm from '@/components/products/ProductForm';
 import StockMovementDialog from '@/components/products/StockMovementDialog';
 import StockBalanceDialog from '@/components/products/StockBalanceDialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+
+interface ProductWithLocations extends Product {
+  locations?: Array<{
+    id: string;
+    quantity: number;
+    is_primary: boolean;
+    location: {
+      aisle: string;
+      shelf: string;
+      bin: string;
+    };
+  }>;
+}
 
 export default function Products() {
   const { isAdmin, clientId } = useAuth();
   const { toast } = useToast();
   const { logAction } = useSystemLog();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductWithLocations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -40,9 +54,45 @@ export default function Products() {
 
       if (error) throw error;
 
+      // Fetch product locations
+      const productIds = data?.map(p => p.id) || [];
+      let locationsMap: Record<string, ProductWithLocations['locations']> = {};
+      
+      if (productIds.length > 0) {
+        const { data: locationsData } = await supabase
+          .from('product_locations')
+          .select(`
+            id,
+            product_id,
+            quantity,
+            is_primary,
+            warehouse_locations (
+              aisle,
+              shelf,
+              bin
+            )
+          `)
+          .in('product_id', productIds);
+
+        if (locationsData) {
+          locationsData.forEach((loc: any) => {
+            if (!locationsMap[loc.product_id]) {
+              locationsMap[loc.product_id] = [];
+            }
+            locationsMap[loc.product_id]!.push({
+              id: loc.id,
+              quantity: loc.quantity,
+              is_primary: loc.is_primary,
+              location: loc.warehouse_locations,
+            });
+          });
+        }
+      }
+
       setProducts(data?.map(p => ({
         ...p,
-        volume_m3: calculateVolumeM3(Number(p.height_cm), Number(p.width_cm), Number(p.depth_cm))
+        volume_m3: calculateVolumeM3(Number(p.height_cm), Number(p.width_cm), Number(p.depth_cm)),
+        locations: locationsMap[p.id] || [],
       })) || []);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -187,6 +237,7 @@ export default function Products() {
                     <TableHead>SKU</TableHead>
                     <TableHead>Nome</TableHead>
                     {isAdmin && <TableHead>Cliente</TableHead>}
+                    <TableHead>Localização</TableHead>
                     <TableHead className="text-center">Qtd</TableHead>
                     <TableHead className="text-right">Volume (m³)</TableHead>
                     <TableHead className="text-right">Peso (kg)</TableHead>
@@ -206,6 +257,49 @@ export default function Products() {
                             {(product as any).clients?.company_name || '-'}
                           </TableCell>
                         )}
+                        <TableCell>
+                          {product.locations && product.locations.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {product.locations.slice(0, 2).map((loc, idx) => (
+                                <Tooltip key={idx}>
+                                  <TooltipTrigger>
+                                    <Badge 
+                                      variant={loc.is_primary ? "default" : "outline"} 
+                                      className="font-mono text-xs cursor-help"
+                                    >
+                                      <MapPin className="h-3 w-3 mr-1" />
+                                      {loc.location.aisle}-{loc.location.shelf}-{loc.location.bin}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Rua {loc.location.aisle}, Prat. {loc.location.shelf}, Bin {loc.location.bin}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Qtd: {loc.quantity} {loc.is_primary && '(Principal)'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ))}
+                              {product.locations.length > 2 && (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge variant="secondary" className="text-xs cursor-help">
+                                      +{product.locations.length - 2}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {product.locations.slice(2).map((loc, idx) => (
+                                      <p key={idx}>
+                                        {loc.location.aisle}-{loc.location.shelf}-{loc.location.bin} (Qtd: {loc.quantity})
+                                      </p>
+                                    ))}
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">Sem localização</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <span className={isLowStock ? 'text-destructive font-semibold' : ''}>
                             {product.quantity}
