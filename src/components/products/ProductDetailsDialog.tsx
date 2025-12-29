@@ -1,7 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Package, MapPin, AlertTriangle, Ruler, Scale, Box } from 'lucide-react';
+import { Package, MapPin, AlertTriangle, Ruler, Scale, Box, Edit } from 'lucide-react';
 import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
 import { Product } from '@/types/database';
 
@@ -24,11 +25,17 @@ interface ProductWithLocations extends Product {
 interface ProductDetailsDialogProps {
   product: ProductWithLocations | null;
   onClose: () => void;
+  onEdit?: (product: Product) => void;
   isAdmin?: boolean;
 }
 
-export default function ProductDetailsDialog({ product, onClose, isAdmin }: ProductDetailsDialogProps) {
+export default function ProductDetailsDialog({ product, onClose, onEdit, isAdmin }: ProductDetailsDialogProps) {
   if (!product) return null;
+
+  const handleEdit = () => {
+    onEdit?.(product);
+    onClose();
+  };
 
   const volume = calculateVolumeM3(
     Number(product.height_cm),
@@ -42,11 +49,17 @@ export default function ProductDetailsDialog({ product, onClose, isAdmin }: Prod
   return (
     <Dialog open={!!product} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Detalhes do Produto
           </DialogTitle>
+          {onEdit && (
+            <Button variant="outline" size="sm" onClick={handleEdit}>
+              <Edit className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
+          )}
         </DialogHeader>
 
         <div className="space-y-4">
