@@ -12,6 +12,7 @@ import Clients from "./pages/Clients";
 import Shipments from "./pages/Shipments";
 import Logs from "./pages/Logs";
 import Locations from "./pages/Locations";
+import Receiving from "./pages/Receiving";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/shipments" element={<Shipments />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/locations" element={<Locations />} />
+            <Route path="/receiving" element={<Receiving />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

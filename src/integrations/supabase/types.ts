@@ -264,6 +264,123 @@ export type Database = {
         }
         Relationships: []
       }
+      receiving_items: {
+        Row: {
+          created_at: string
+          damage_notes: string | null
+          expected_quantity: number
+          has_damage: boolean | null
+          id: string
+          location_id: string | null
+          product_id: string
+          received_quantity: number | null
+          receiving_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          damage_notes?: string | null
+          expected_quantity?: number
+          has_damage?: boolean | null
+          id?: string
+          location_id?: string | null
+          product_id: string
+          received_quantity?: number | null
+          receiving_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          damage_notes?: string | null
+          expected_quantity?: number
+          has_damage?: boolean | null
+          id?: string
+          location_id?: string | null
+          product_id?: string
+          received_quantity?: number | null
+          receiving_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receiving_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_items_receiving_id_fkey"
+            columns: ["receiving_id"]
+            isOneToOne: false
+            referencedRelation: "receiving_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receiving_orders: {
+        Row: {
+          client_id: string
+          completed_by: string | null
+          created_at: string
+          created_by: string
+          expected_date: string | null
+          id: string
+          invoice_number: string | null
+          invoice_url: string | null
+          notes: string | null
+          received_date: string | null
+          status: Database["public"]["Enums"]["receiving_status"]
+          supplier_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          completed_by?: string | null
+          created_at?: string
+          created_by: string
+          expected_date?: string | null
+          id?: string
+          invoice_number?: string | null
+          invoice_url?: string | null
+          notes?: string | null
+          received_date?: string | null
+          status?: Database["public"]["Enums"]["receiving_status"]
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          expected_date?: string | null
+          id?: string
+          invoice_number?: string | null
+          invoice_url?: string | null
+          notes?: string | null
+          received_date?: string | null
+          status?: Database["public"]["Enums"]["receiving_status"]
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receiving_orders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipment_items: {
         Row: {
           id: string
@@ -536,6 +653,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "client" | "employee"
+      receiving_status: "pending" | "inspecting" | "completed" | "cancelled"
       shipment_status:
         | "pending"
         | "processing"
@@ -670,6 +788,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "client", "employee"],
+      receiving_status: ["pending", "inspecting", "completed", "cancelled"],
       shipment_status: [
         "pending",
         "processing",

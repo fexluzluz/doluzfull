@@ -4,6 +4,8 @@ export type AppRole = 'admin' | 'client' | 'employee';
 
 export type ShipmentStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
+export type ReceivingStatus = 'pending' | 'inspecting' | 'completed' | 'cancelled';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -207,4 +209,48 @@ export interface WarehouseLocationFormData {
   bin: string;
   description?: string;
   max_capacity_m3?: number;
+}
+
+// Receiving orders
+export interface ReceivingOrder {
+  id: string;
+  client_id: string;
+  invoice_number: string | null;
+  invoice_url: string | null;
+  supplier_name: string | null;
+  expected_date: string | null;
+  received_date: string | null;
+  status: ReceivingStatus;
+  notes: string | null;
+  created_by: string;
+  completed_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  client?: Client;
+  items?: ReceivingItem[];
+}
+
+export interface ReceivingItem {
+  id: string;
+  receiving_id: string;
+  product_id: string;
+  expected_quantity: number;
+  received_quantity: number | null;
+  has_damage: boolean;
+  damage_notes: string | null;
+  location_id: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  product?: Product;
+  location?: WarehouseLocation;
+}
+
+export interface ReceivingOrderFormData {
+  invoice_number?: string;
+  supplier_name?: string;
+  expected_date?: string;
+  notes?: string;
+  items: { product_id: string; expected_quantity: number }[];
 }
