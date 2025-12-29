@@ -56,43 +56,52 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          billing_type: string | null
           city: string | null
           cnpj: string | null
           company_name: string
           created_at: string
+          fixed_storage_fee: number | null
           handling_fee_per_item: number | null
           id: string
           postal_code: string | null
           profile_id: string
           state: string | null
+          storage_fee_per_m3: number | null
           total_space_m3: number | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          billing_type?: string | null
           city?: string | null
           cnpj?: string | null
           company_name: string
           created_at?: string
+          fixed_storage_fee?: number | null
           handling_fee_per_item?: number | null
           id?: string
           postal_code?: string | null
           profile_id: string
           state?: string | null
+          storage_fee_per_m3?: number | null
           total_space_m3?: number | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          billing_type?: string | null
           city?: string | null
           cnpj?: string | null
           company_name?: string
           created_at?: string
+          fixed_storage_fee?: number | null
           handling_fee_per_item?: number | null
           id?: string
           postal_code?: string | null
           profile_id?: string
           state?: string | null
+          storage_fee_per_m3?: number | null
           total_space_m3?: number | null
           updated_at?: string
         }

@@ -26,6 +26,8 @@ export interface UserRole {
   created_at: string;
 }
 
+export type BillingType = 'fixed' | 'per_unit' | 'combined';
+
 export interface Client {
   id: string;
   profile_id: string;
@@ -37,6 +39,9 @@ export interface Client {
   postal_code: string | null;
   total_space_m3: number;
   handling_fee_per_item: number;
+  billing_type: BillingType;
+  fixed_storage_fee: number;
+  storage_fee_per_m3: number;
   created_at: string;
   updated_at: string;
   // Joined data
