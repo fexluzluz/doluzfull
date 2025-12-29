@@ -106,6 +106,27 @@ export type Database = {
           },
         ]
       }
+      log_access_permissions: {
+        Row: {
+          created_at: string
+          granted_by: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           client_id: string
@@ -352,6 +373,45 @@ export type Database = {
           },
         ]
       }
+      system_logs: {
+        Row: {
+          action_type: string
+          client_id: string | null
+          created_at: string
+          description: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          performed_by: string
+          performed_by_name: string | null
+        }
+        Insert: {
+          action_type: string
+          client_id?: string | null
+          created_at?: string
+          description: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          performed_by: string
+          performed_by_name?: string | null
+        }
+        Update: {
+          action_type?: string
+          client_id?: string | null
+          created_at?: string
+          description?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          performed_by?: string
+          performed_by_name?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -383,6 +443,7 @@ export type Database = {
         Returns: number
       }
       get_user_client_id: { Args: { _user_id: string }; Returns: string }
+      has_log_access: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -390,6 +451,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_log_owner: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "client" | "employee"
