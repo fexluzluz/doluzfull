@@ -9,11 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
 import { Product } from '@/types/database';
 import ProductForm from '@/components/products/ProductForm';
 import StockMovementDialog from '@/components/products/StockMovementDialog';
+import StockBalanceDialog from '@/components/products/StockBalanceDialog';
 
 export default function Products() {
   const { isAdmin, clientId } = useAuth();
@@ -24,6 +25,7 @@ export default function Products() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
+  const [balanceProduct, setBalanceProduct] = useState<Product | null>(null);
 
   const fetchProducts = async () => {
     try {
@@ -225,6 +227,16 @@ export default function Products() {
                               <ArrowUpDown className="h-4 w-4" />
                             </Button>
                             {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setBalanceProduct(product)}
+                                title="Balanço de estoque"
+                              >
+                                <ClipboardCheck className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {isAdmin && (
                               <>
                                 <Button
                                   variant="ghost"
@@ -260,6 +272,16 @@ export default function Products() {
         onClose={() => setStockProduct(null)}
         onSuccess={() => {
           setStockProduct(null);
+          fetchProducts();
+        }}
+      />
+
+      {/* Stock Balance Dialog (Admin only) */}
+      <StockBalanceDialog
+        product={balanceProduct}
+        onClose={() => setBalanceProduct(null)}
+        onSuccess={() => {
+          setBalanceProduct(null);
           fetchProducts();
         }}
       />
