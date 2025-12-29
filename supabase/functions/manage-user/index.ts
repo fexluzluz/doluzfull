@@ -105,19 +105,70 @@ serve(async (req: Request): Promise<Response> => {
 
       // Send email with Resend
       const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      const siteUrl = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovableproject.com') || "https://bfeefb08-8367-46cd-ac36-02a7f3b593f9.lovableproject.com";
+      
       if (resendApiKey) {
         const resend = new Resend(resendApiKey);
 
         await resend.emails.send({
           from: "Do Luz Full <noreply@doluz.com.br>",
           to: [email],
-          subject: "Senha Redefinida - Do Luz Full",
+          subject: "🔐 Sua Senha Foi Redefinida - Do Luz Full",
           html: `
-            <h1>Sua Senha Foi Redefinida</h1>
-            <p>Um administrador redefiniu sua senha.</p>
-            <p><strong>Sua nova senha temporária é:</strong> ${tempPassword}</p>
-            <p>Você será solicitado a criar uma nova senha no próximo login.</p>
-            <p>Atenciosamente,<br>Equipe Do Luz Full</p>
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f5;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Do Luz Full</h1>
+                    <p style="color: #bfdbfe; margin: 10px 0 0 0; font-size: 14px;">Sistema de Fulfillment</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #ffffff; padding: 40px 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 22px;">🔐 Sua Senha Foi Redefinida</h2>
+                    
+                    <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                      Olá! Um administrador do sistema redefiniu sua senha de acesso.
+                    </p>
+                    
+                    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                      <p style="color: #92400e; margin: 0 0 10px 0; font-weight: bold; font-size: 14px;">Sua nova senha temporária:</p>
+                      <p style="color: #1f2937; margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 2px; font-family: monospace;">${tempPassword}</p>
+                    </div>
+                    
+                    <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 20px 0;">
+                      <strong>⚠️ Importante:</strong> Você será solicitado a criar uma nova senha no próximo login.
+                    </p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${siteUrl}/auth" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; font-size: 16px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);">
+                        Acessar o Sistema
+                      </a>
+                    </div>
+                    
+                    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+                    
+                    <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+                      Este email foi enviado automaticamente. Se você não solicitou esta alteração, entre em contato com o administrador.
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 20px; text-align: center;">
+                    <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                      © 2024 Do Luz Full - Todos os direitos reservados
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
           `,
         });
 
