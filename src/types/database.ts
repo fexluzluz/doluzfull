@@ -32,6 +32,7 @@ export interface Client {
   state: string | null;
   postal_code: string | null;
   total_space_m3: number;
+  handling_fee_per_item: number;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -99,6 +100,7 @@ export interface ShipmentRequest {
   invoice_url: string | null;
   tracking_code: string | null;
   notes: string | null;
+  handling_total: number;
   created_by: string;
   processed_by: string | null;
   created_at: string;
