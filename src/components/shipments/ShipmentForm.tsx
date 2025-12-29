@@ -9,10 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Minus, Package, Search, Upload, FileText, Tag } from 'lucide-react';
+import { Loader2, Plus, Minus, Package, Search, Upload, FileText, Tag, ChevronsUpDown, Check } from 'lucide-react';
 import { z } from 'zod';
-import { brazilianStates } from '@/lib/utils';
+import { brazilianStates, cn } from '@/lib/utils';
 import { useCepLookup } from '@/hooks/useCepLookup';
 
 const shipmentSchema = z.object({
@@ -39,6 +41,120 @@ interface ProductItem {
     sku: string;
     quantity: number;
   };
+}
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  quantity: number;
+}
+
+interface ProductItemRowProps {
+  item: ProductItem;
+  index: number;
+  products: Product[];
+  onUpdate: (index: number, field: 'product_id' | 'quantity', value: string | number) => void;
+  onRemove: (index: number) => void;
+  canRemove: boolean;
+}
+
+function ProductItemRow({ item, index, products, onUpdate, onRemove, canRemove }: ProductItemRowProps) {
+  const [open, setOpen] = useState(false);
+  const selectedProduct = products.find((p) => p.id === item.product_id);
+  
+  return (
+    <Card>
+      <CardContent className="p-3">
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
+            <Label className="text-xs">Produto</Label>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="w-full justify-between font-normal"
+                >
+                  {selectedProduct ? (
+                    <div className="flex items-center gap-2 truncate">
+                      <Package className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{selectedProduct.name}</span>
+                      <span className="text-muted-foreground text-xs shrink-0">
+                        ({selectedProduct.quantity} disp.)
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">Buscar produto...</span>
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar por nome ou SKU..." />
+                  <CommandList>
+                    <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {products.map((product) => (
+                        <CommandItem
+                          key={product.id}
+                          value={`${product.name} ${product.sku}`}
+                          onSelect={() => {
+                            onUpdate(index, 'product_id', product.id);
+                            setOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              item.product_id === product.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <Package className="h-3 w-3" />
+                              <span className="font-medium">{product.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Tag className="h-3 w-3" />
+                              <span>SKU: {product.sku}</span>
+                              <span>•</span>
+                              <span>{product.quantity} disponíveis</span>
+                            </div>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="w-24">
+            <Label className="text-xs">Qtd</Label>
+            <Input
+              type="number"
+              min="1"
+              max={selectedProduct?.quantity || 999}
+              value={item.quantity}
+              onChange={(e) => onUpdate(index, 'quantity', parseInt(e.target.value) || 1)}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onRemove(index)}
+            disabled={!canRemove}
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps) {
@@ -394,55 +510,15 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
         </div>
         <div className="space-y-2">
           {items.map((item, index) => (
-            <Card key={index}>
-              <CardContent className="p-3">
-                <div className="flex gap-3 items-end">
-                  <div className="flex-1">
-                    <Label className="text-xs">Produto</Label>
-                    <Select
-                      value={item.product_id}
-                      onValueChange={(v) => updateItem(index, 'product_id', v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            <div className="flex items-center gap-2">
-                              <Package className="h-3 w-3" />
-                              <span>{product.name}</span>
-                              <span className="text-muted-foreground text-xs">
-                                ({product.quantity} disp.)
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-24">
-                    <Label className="text-xs">Qtd</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max={item.product?.quantity || 999}
-                      value={item.quantity}
-                      onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeItem(index)}
-                    disabled={items.length === 1}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <ProductItemRow
+              key={index}
+              item={item}
+              index={index}
+              products={products}
+              onUpdate={updateItem}
+              onRemove={removeItem}
+              canRemove={items.length > 1}
+            />
           ))}
         </div>
 
