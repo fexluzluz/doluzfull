@@ -180,7 +180,7 @@ export default function Users() {
   };
 
   const handleResetPassword = async (user: UserData) => {
-    if (!confirm(`Enviar email de redefinição de senha para ${user.email}?`)) return;
+    if (!confirm(`Redefinir senha de ${user.full_name}? Uma nova senha temporária será enviada por email e o usuário será obrigado a alterá-la no próximo login.`)) return;
     
     setActionLoading(`reset-${user.id}`);
     try {
@@ -189,12 +189,13 @@ export default function Users() {
           action: 'reset_password',
           user_id: user.user_id,
           email: user.email,
+          profile_id: user.id,
         },
       });
 
       if (error) throw error;
 
-      toast({ title: 'Email de redefinição de senha enviado!' });
+      toast({ title: 'Senha redefinida! Email enviado com a nova senha temporária.' });
     } catch (error: any) {
       console.error('Error resetting password:', error);
       toast({
