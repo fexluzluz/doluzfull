@@ -3,16 +3,21 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { AppRole, Profile, Client } from '@/types/database';
 
+interface ExtendedProfile extends Profile {
+  must_change_password?: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: Profile | null;
+  profile: ExtendedProfile | null;
   role: AppRole | null;
   clientId: string | null;
   isAdmin: boolean;
   isClient: boolean;
   isEmployee: boolean;
   isLoading: boolean;
+  mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -24,10 +29,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<ExtendedProfile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -39,7 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (profileData) {
-        setProfile(profileData as Profile);
+        setProfile(profileData as ExtendedProfile);
+        setMustChangePassword(profileData.must_change_password === true);
       }
 
       // Fetch role
@@ -167,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isClient: role === 'client',
     isEmployee: role === 'employee',
     isLoading,
+    mustChangePassword,
     signIn,
     signUp,
     signOut,

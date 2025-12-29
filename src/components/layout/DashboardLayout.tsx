@@ -7,13 +7,14 @@ import { NavLink } from '@/components/NavLink';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import ChangePasswordDialog from '@/components/auth/ChangePasswordDialog';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user, profile, isAdmin, isLoading, signOut } = useAuth();
+  const { user, profile, isAdmin, isLoading, signOut, mustChangePassword, refreshProfile } = useAuth();
   const { hasLogAccess } = useLogAccess();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -28,6 +29,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
+
+  const handlePasswordChanged = async () => {
+    await refreshProfile();
+  };
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -103,6 +108,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row w-full bg-background">
+      {/* Change Password Dialog */}
+      {profile && (
+        <ChangePasswordDialog
+          open={mustChangePassword}
+          profileId={profile.id}
+          onSuccess={handlePasswordChanged}
+        />
+      )}
+
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between p-4 border-b bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-3">
