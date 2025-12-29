@@ -155,8 +155,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row w-full bg-background">
-      {/* Change Password Dialog */}
-      {profile && (
+      {/* Change Password Dialog - Skip if admin is impersonating */}
+      {profile && !isImpersonating && (
         <ChangePasswordDialog
           open={mustChangePassword}
           profileId={profile.id}
