@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Truck, Eye, Edit, FileText, Upload } from 'lucide-react';
+import { Plus, Search, Truck, Eye, Edit, Upload } from 'lucide-react';
 import { formatDateTime, translateShipmentStatus } from '@/lib/utils';
 import ShipmentForm from '@/components/shipments/ShipmentForm';
 import ShipmentDetailsDialog from '@/components/shipments/ShipmentDetailsDialog';
@@ -32,13 +33,20 @@ interface Shipment {
   } | null;
 }
 
+interface Client {
+  id: string;
+  company_name: string;
+}
+
 export default function Shipments() {
   const { isAdmin, clientId } = useAuth();
   const { toast } = useToast();
   const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewingShipment, setViewingShipment] = useState<Shipment | null>(null);
   const [editingStatus, setEditingStatus] = useState<Shipment | null>(null);
@@ -65,9 +73,25 @@ export default function Shipments() {
     }
   };
 
+  const fetchClients = async () => {
+    if (!isAdmin) return;
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, company_name')
+        .order('company_name');
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
   useEffect(() => {
     fetchShipments();
-  }, []);
+    fetchClients();
+  }, [isAdmin]);
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
@@ -92,7 +116,8 @@ export default function Shipments() {
       s.tracking_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.clients?.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesClient = clientFilter === 'all' || s.client_id === clientFilter;
+    return matchesSearch && matchesStatus && matchesClient;
   });
 
   return (
@@ -129,15 +154,32 @@ export default function Shipments() {
       {/* Filters */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por destinatário, rastreio ou cliente..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por destinatário, rastreio ou cliente..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              {isAdmin && clients.length > 0 && (
+                <Select value={clientFilter} onValueChange={setClientFilter}>
+                  <SelectTrigger className="w-full sm:w-[200px]">
+                    <SelectValue placeholder="Filtrar por empresa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as empresas</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.company_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="flex gap-2 flex-wrap">
               {['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map((status) => (
