@@ -21,8 +21,17 @@ const productSchema = z.object({
   depth_cm: z.number().min(0, 'Profundidade inválida').max(10000, 'Profundidade muito grande'),
   weight_kg: z.number().min(0, 'Peso inválido').max(10000, 'Peso muito grande').optional(),
   quantity: z.number().int().min(0, 'Quantidade inválida'),
-  min_stock_alert: z.number().int().min(0, 'Alerta inválido').optional(),
+  min_stock_alert: z.number().int().min(0, 'Alerta inválido').optional().nullable(),
+  max_stock_alert: z.number().int().min(0, 'Alerta inválido').optional().nullable(),
   client_id: z.string().uuid('Selecione um cliente'),
+}).refine((data) => {
+  if (data.min_stock_alert != null && data.max_stock_alert != null) {
+    return data.max_stock_alert >= data.min_stock_alert;
+  }
+  return true;
+}, {
+  message: 'Estoque máximo deve ser maior ou igual ao estoque mínimo',
+  path: ['max_stock_alert'],
 });
 
 interface ProductFormProps {
@@ -47,7 +56,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     depth_cm: product?.depth_cm || 0,
     weight_kg: product?.weight_kg || 0,
     quantity: product?.quantity || 0,
-    min_stock_alert: product?.min_stock_alert || 5,
+    min_stock_alert: product?.min_stock_alert ?? '',
+    max_stock_alert: (product as any)?.max_stock_alert ?? '',
     client_id: product?.client_id || '',
   });
 
@@ -84,7 +94,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       depth_cm: Number(formData.depth_cm),
       weight_kg: Number(formData.weight_kg) || 0,
       quantity: Number(formData.quantity),
-      min_stock_alert: Number(formData.min_stock_alert) || 5,
+      min_stock_alert: formData.min_stock_alert !== '' ? Number(formData.min_stock_alert) : null,
+      max_stock_alert: formData.max_stock_alert !== '' ? Number(formData.max_stock_alert) : null,
     };
 
     const result = productSchema.safeParse(dataToValidate);
@@ -114,7 +125,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             weight_kg: dataToValidate.weight_kg,
             quantity: dataToValidate.quantity,
             min_stock_alert: dataToValidate.min_stock_alert,
-          })
+            max_stock_alert: dataToValidate.max_stock_alert,
+          } as any)
           .eq('id', product.id);
 
         if (error) throw error;
@@ -140,8 +152,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           weight_kg: dataToValidate.weight_kg,
           quantity: dataToValidate.quantity,
           min_stock_alert: dataToValidate.min_stock_alert,
+          max_stock_alert: dataToValidate.max_stock_alert,
           client_id: dataToValidate.client_id,
-        }).select().single();
+        } as any).select().single();
 
         if (error) throw error;
         
@@ -309,14 +322,29 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="min_stock_alert">Alerta de estoque baixo</Label>
+          <Label htmlFor="min_stock_alert">Estoque mínimo</Label>
           <Input
             id="min_stock_alert"
             type="number"
             min="0"
             value={formData.min_stock_alert}
             onChange={(e) => handleChange('min_stock_alert', e.target.value)}
+            placeholder="Opcional"
           />
+          {errors.min_stock_alert && <p className="text-sm text-destructive">{errors.min_stock_alert}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="max_stock_alert">Estoque máximo</Label>
+          <Input
+            id="max_stock_alert"
+            type="number"
+            min="0"
+            value={formData.max_stock_alert}
+            onChange={(e) => handleChange('max_stock_alert', e.target.value)}
+            placeholder="Opcional"
+          />
+          {errors.max_stock_alert && <p className="text-sm text-destructive">{errors.max_stock_alert}</p>}
         </div>
       </div>
 
