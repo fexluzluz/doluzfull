@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSystemLog } from '@/hooks/useSystemLog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ interface StockMovementDialogProps {
 export default function StockMovementDialog({ product, onClose, onSuccess }: StockMovementDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
   const [movementType, setMovementType] = useState<'entry' | 'exit'>('entry');
   const [quantity, setQuantity] = useState('');
@@ -76,6 +78,22 @@ export default function StockMovementDialog({ product, onClose, onSuccess }: Sto
         .eq('id', product.id);
 
       if (updateError) throw updateError;
+
+      await logAction({
+        action_type: movementType === 'entry' ? 'stock_entry' : 'stock_exit',
+        entity_type: 'stock_movement',
+        entity_id: product.id,
+        description: `${movementType === 'entry' ? 'Entrada' : 'Saída'} de ${qty} unidades do produto "${product.name}" (${product.quantity} → ${newQuantity})`,
+        details: { 
+          product_sku: product.sku, 
+          product_name: product.name,
+          quantity: qty, 
+          previous: product.quantity, 
+          new: newQuantity,
+          notes: notes.trim() || null,
+        },
+        client_id: product.client_id,
+      });
 
       toast({
         title: 'Movimentação registrada!',

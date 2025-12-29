@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useSystemLog } from '@/hooks/useSystemLog';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,7 @@ interface Client {
 export default function Shipments() {
   const { isAdmin, clientId } = useAuth();
   const { toast } = useToast();
+  const { logAction } = useSystemLog();
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,6 +156,18 @@ export default function Shipments() {
         .eq('id', cancellingShipment.id);
 
       if (updateError) throw updateError;
+
+      await logAction({
+        action_type: 'shipment_cancelled',
+        entity_type: 'shipment',
+        entity_id: cancellingShipment.id,
+        description: `Pedido de ${cancellingShipment.recipient_name} cancelado via botão rápido (estoque estornado, manuseio zerado)`,
+        details: { 
+          recipient: cancellingShipment.recipient_name,
+          items_returned: items?.length || 0,
+        },
+        client_id: cancellingShipment.client_id,
+      });
 
       toast({
         title: 'Pedido cancelado',

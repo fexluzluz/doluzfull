@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useSystemLog } from '@/hooks/useSystemLog';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import StockBalanceDialog from '@/components/products/StockBalanceDialog';
 export default function Products() {
   const { isAdmin, clientId } = useAuth();
   const { toast } = useToast();
+  const { logAction } = useSystemLog();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,6 +70,15 @@ export default function Products() {
         .eq('id', product.id);
 
       if (error) throw error;
+
+      await logAction({
+        action_type: 'product_deleted',
+        entity_type: 'product',
+        entity_id: product.id,
+        description: `Produto "${product.name}" (SKU: ${product.sku}) excluído`,
+        details: { sku: product.sku, name: product.name },
+        client_id: product.client_id,
+      });
 
       toast({ title: 'Produto excluído com sucesso!' });
       fetchProducts();

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSystemLog } from '@/hooks/useSystemLog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ interface StockBalanceDialogProps {
 export default function StockBalanceDialog({ product, onClose, onSuccess }: StockBalanceDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
   const [newQuantity, setNewQuantity] = useState('');
   const [notes, setNotes] = useState('');
@@ -81,6 +83,23 @@ export default function StockBalanceDialog({ product, onClose, onSuccess }: Stoc
         .eq('id', product.id);
 
       if (updateError) throw updateError;
+
+      await logAction({
+        action_type: 'stock_balance',
+        entity_type: 'stock_movement',
+        entity_id: product.id,
+        description: `Balanço de estoque do produto "${product.name}" por ${operatorName}: ${product.quantity} → ${qty} unidades (${difference > 0 ? '+' : ''}${difference})`,
+        details: { 
+          product_sku: product.sku,
+          product_name: product.name,
+          operator: operatorName,
+          previous: product.quantity, 
+          new: qty,
+          difference,
+          notes: notes.trim() || null,
+        },
+        client_id: product.client_id,
+      });
 
       toast({
         title: 'Balanço registrado!',

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
+import { useSystemLog } from '@/hooks/useSystemLog';
 import { useCepLookup } from '@/hooks/useCepLookup';
 import { useCnpjLookup } from '@/hooks/useCnpjLookup';
 import { Loader2, Search, UserPlus, UserCheck } from 'lucide-react';
@@ -44,6 +45,7 @@ interface ClientFormProps {
 
 export default function ClientForm({ client, onSuccess, onCancel }: ClientFormProps) {
   const { toast } = useToast();
+  const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { lookupCep, isLoading: isLoadingCep } = useCepLookup();
@@ -287,6 +289,14 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
             .eq('id', client.profile.id);
         }
 
+        await logAction({
+          action_type: 'client_updated',
+          entity_type: 'client',
+          entity_id: client.id,
+          description: `Cliente "${formData.company_name}" atualizado`,
+          details: { company_name: formData.company_name, cnpj: formData.cnpj },
+        });
+
         toast({ title: 'Cliente atualizado com sucesso!' });
       } else {
         let profileId: string;
@@ -361,6 +371,14 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
         // Ignore duplicate role error
         if (roleError && !roleError.message.includes('duplicate')) throw roleError;
+
+        await logAction({
+          action_type: 'client_created',
+          entity_type: 'client',
+          entity_id: undefined,
+          description: `Cliente "${formData.company_name}" criado`,
+          details: { company_name: formData.company_name, cnpj: formData.cnpj, email: userMode === 'new' ? formData.email : selectedUserId },
+        });
 
         toast({ title: 'Cliente criado com sucesso!' });
       }
