@@ -174,3 +174,37 @@ export interface StockEntryFormData {
   quantity: number;
   notes?: string;
 }
+
+// Warehouse locations
+export interface WarehouseLocation {
+  id: string;
+  aisle: string;
+  shelf: string;
+  bin: string;
+  description: string | null;
+  max_capacity_m3: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductLocation {
+  id: string;
+  product_id: string;
+  location_id: string;
+  quantity: number;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  product?: Product;
+  location?: WarehouseLocation;
+}
+
+export interface WarehouseLocationFormData {
+  aisle: string;
+  shelf: string;
+  bin: string;
+  description?: string;
+  max_capacity_m3?: number;
+}
