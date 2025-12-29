@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useSystemLog } from '@/hooks/useSystemLog';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Upload, X, ImageIcon } from 'lucide-react';
 import { z } from 'zod';
 import { Product } from '@/types/database';
 import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
@@ -44,8 +44,11 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const { toast } = useToast();
   const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [clients, setClients] = useState<{ id: string; company_name: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [imageUrl, setImageUrl] = useState<string | null>(product?.image_url || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     sku: product?.sku || '',
@@ -81,6 +84,66 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const handleChange = (field: string, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: 'destructive',
+        title: 'Arquivo inválido',
+        description: 'Por favor, selecione uma imagem.',
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: 'destructive',
+        title: 'Arquivo muito grande',
+        description: 'A imagem deve ter no máximo 5MB.',
+      });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `products/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(fileName);
+
+      setImageUrl(publicUrl);
+      toast({ title: 'Imagem enviada com sucesso!' });
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar imagem',
+        description: error.message,
+      });
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageUrl(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -126,6 +189,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             quantity: dataToValidate.quantity,
             min_stock_alert: dataToValidate.min_stock_alert,
             max_stock_alert: dataToValidate.max_stock_alert,
+            image_url: imageUrl,
           } as any)
           .eq('id', product.id);
 
@@ -154,6 +218,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           min_stock_alert: dataToValidate.min_stock_alert,
           max_stock_alert: dataToValidate.max_stock_alert,
           client_id: dataToValidate.client_id,
+          image_url: imageUrl,
         } as any).select().single();
 
         if (error) throw error;
@@ -187,6 +252,66 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
+        {/* Image Upload */}
+        <div className="col-span-2 space-y-2">
+          <Label>Imagem do Produto (opcional)</Label>
+          <div className="flex items-start gap-4">
+            {imageUrl ? (
+              <div className="relative">
+                <img 
+                  src={imageUrl} 
+                  alt="Produto" 
+                  className="h-24 w-24 object-cover rounded-lg border"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -top-2 -right-2 h-6 w-6"
+                  onClick={handleRemoveImage}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <div className="h-24 w-24 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
+                <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+              </div>
+            )}
+            <div className="flex-1">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                ref={fileInputRef}
+                className="hidden"
+                id="product-image"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImage}
+              >
+                {isUploadingImage ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    {imageUrl ? 'Trocar imagem' : 'Enviar imagem'}
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-1">
+                Formatos aceitos: JPG, PNG, WEBP. Máx: 5MB
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Cliente */}
         {!product && (
           <div className="col-span-2 space-y-2">

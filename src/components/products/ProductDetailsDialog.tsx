@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Package, MapPin, AlertTriangle, Ruler, Scale, Box, Edit } from 'lucide-react';
+import { Package, MapPin, AlertTriangle, Ruler, Scale, Box, Edit, ImageIcon } from 'lucide-react';
 import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
 import { Product } from '@/types/database';
 
@@ -63,6 +63,23 @@ export default function ProductDetailsDialog({ product, onClose, onEdit, isAdmin
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Product Image */}
+          {product.image_url ? (
+            <div className="flex justify-center">
+              <img 
+                src={product.image_url} 
+                alt={product.name}
+                className="max-h-48 rounded-lg object-contain border"
+              />
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <div className="h-32 w-32 bg-muted rounded-lg flex items-center justify-center">
+                <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+              </div>
+            </div>
+          )}
+
           {/* Header Info */}
           <div className="flex items-start justify-between">
             <div>
