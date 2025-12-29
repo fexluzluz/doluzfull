@@ -239,6 +239,20 @@ serve(async (req: Request): Promise<Response> => {
         );
       }
 
+      // Get target user profile for logging
+      const { data: targetProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name")
+        .eq("user_id", user_id)
+        .maybeSingle();
+
+      // Get admin profile for logging
+      const { data: adminProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name")
+        .eq("user_id", callerUser.id)
+        .maybeSingle();
+
       // Generate a magic link for the target user
       const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: "magiclink",
@@ -253,7 +267,25 @@ serve(async (req: Request): Promise<Response> => {
         );
       }
 
-      console.log(`Admin impersonating user ${user_id}, token hash generated`);
+      // Log the impersonation for audit
+      await supabaseAdmin.from("system_logs").insert({
+        entity_type: "user",
+        entity_id: targetProfile?.id || null,
+        action_type: "impersonate",
+        description: `Admin "${adminProfile?.full_name || callerUser.email}" acessou o sistema como "${targetProfile?.full_name || email}"`,
+        performed_by: callerUser.id,
+        performed_by_name: adminProfile?.full_name || callerUser.email,
+        details: {
+          admin_user_id: callerUser.id,
+          admin_email: callerUser.email,
+          target_user_id: user_id,
+          target_email: email,
+          target_name: targetProfile?.full_name,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      console.log(`Admin ${callerUser.email} impersonating user ${email}, audit log created`);
 
       // Return the token hash for the frontend to use with verifyOtp
       return new Response(
