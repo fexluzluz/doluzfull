@@ -44,6 +44,7 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [items, setItems] = useState<ItemRow[]>([{ product_id: "", expected_quantity: 1 }]);
   const [isTemporary, setIsTemporary] = useState(false);
+  const [temporaryVolumeM3, setTemporaryVolumeM3] = useState("");
   const [formData, setFormData] = useState({
     invoice_number: "",
     supplier_name: "",
@@ -138,6 +139,7 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
           created_by: user?.id,
           status: 'pending',
           is_temporary: isTemporary,
+          temporary_volume_m3: isTemporary ? (parseFloat(temporaryVolumeM3) || 0) : 0,
         }])
         .select()
         .single();
@@ -253,20 +255,40 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
       </div>
 
       {/* Temporary cargo toggle */}
-      <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-        <div className="flex items-center gap-3">
-          <Clock className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <p className="font-medium text-sm">Carga Temporária</p>
+      <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="font-medium text-sm">Carga Temporária</p>
+              <p className="text-xs text-muted-foreground">
+                Itens que serão armazenados por um período e depois retirados
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={isTemporary}
+            onCheckedChange={setIsTemporary}
+          />
+        </div>
+        
+        {isTemporary && (
+          <div className="space-y-2 pt-2 border-t">
+            <Label htmlFor="temporary_volume_m3">Volume da Carga (m³)</Label>
+            <Input
+              id="temporary_volume_m3"
+              type="number"
+              step="0.01"
+              min="0"
+              value={temporaryVolumeM3}
+              onChange={e => setTemporaryVolumeM3(e.target.value)}
+              placeholder="Ex: 2.5"
+            />
             <p className="text-xs text-muted-foreground">
-              Itens que serão armazenados por um período e depois retirados
+              Informe o volume total em metros cúbicos para cálculo de armazenamento
             </p>
           </div>
-        </div>
-        <Switch
-          checked={isTemporary}
-          onCheckedChange={setIsTemporary}
-        />
+        )}
       </div>
 
       <div className="space-y-3">

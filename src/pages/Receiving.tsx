@@ -295,6 +295,11 @@ export default function Receiving() {
                               <Timer className="h-3 w-3" />
                               Temporário
                             </Badge>
+                            {orderData.temporary_volume_m3 > 0 && (
+                              <span className="text-xs font-medium">
+                                {orderData.temporary_volume_m3.toFixed(2)} m³
+                              </span>
+                            )}
                             {order.status === "completed" && !isDischarged && (
                               <span className="text-xs text-muted-foreground">
                                 {getStorageDays(order)} dias

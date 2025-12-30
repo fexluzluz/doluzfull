@@ -232,6 +232,7 @@ export interface ReceivingOrder {
   created_by: string;
   completed_by: string | null;
   is_temporary: boolean;
+  temporary_volume_m3: number;
   discharged_at: string | null;
   discharged_by: string | null;
   created_at: string;
