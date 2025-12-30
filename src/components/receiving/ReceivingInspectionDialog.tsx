@@ -220,11 +220,13 @@ export function ReceivingInspectionDialog({
         }
       }
 
-      // Update order status
+      // Update order status - temporary goes to awaiting_pickup, regular goes to completed
+      const newStatus = isTemporary ? "awaiting_pickup" : "completed";
+      
       const { error: orderError } = await supabase
         .from("receiving_orders")
         .update({
-          status: "completed",
+          status: newStatus,
           received_date: new Date().toISOString(),
           completed_by: user?.id,
           invoice_url: invoiceUrl,
