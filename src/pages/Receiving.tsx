@@ -31,18 +31,20 @@ import { useToast } from "@/hooks/use-toast";
 import { ReceivingOrder, ReceivingStatus } from "@/types/database";
 import { ReceivingForm } from "@/components/receiving/ReceivingForm";
 import { ReceivingInspectionDialog } from "@/components/receiving/ReceivingInspectionDialog";
+import { ReceivingDischargeDialog } from "@/components/receiving/ReceivingDischargeDialog";
 import {
   Plus,
   Search,
-  Package,
   Clock,
   CheckCircle2,
   XCircle,
   ClipboardCheck,
   FileText,
   Truck,
+  PackageX,
+  Timer,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const statusConfig: Record<ReceivingStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
@@ -62,11 +64,13 @@ export default function Receiving() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [inspectingOrder, setInspectingOrder] = useState<ReceivingOrder | null>(null);
+  const [dischargingOrder, setDischargingOrder] = useState<ReceivingOrder | null>(null);
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
     inspecting: 0,
     completed: 0,
+    temporary: 0,
   });
 
   useEffect(() => {
@@ -114,6 +118,7 @@ export default function Receiving() {
         pending: ordersData.filter(o => o.status === "pending").length,
         inspecting: ordersData.filter(o => o.status === "inspecting").length,
         completed: ordersData.filter(o => o.status === "completed").length,
+        temporary: ordersData.filter(o => (o as any).is_temporary && o.status === "completed" && !(o as any).discharged_at).length,
       });
     } catch (error) {
       toast({
@@ -139,6 +144,11 @@ export default function Receiving() {
     return format(new Date(date), "dd/MM/yyyy", { locale: ptBR });
   };
 
+  const getStorageDays = (order: any) => {
+    if (!order.received_date) return 0;
+    return Math.max(1, differenceInDays(new Date(), new Date(order.received_date)));
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -157,7 +167,7 @@ export default function Receiving() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -192,6 +202,15 @@ export default function Receiving() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.completed}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Temporários</CardTitle>
+              <Timer className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.temporary}</div>
             </CardContent>
           </Card>
         </div>
@@ -229,6 +248,7 @@ export default function Receiving() {
                 <TableHead>Nota Fiscal</TableHead>
                 <TableHead>Fornecedor</TableHead>
                 {isAdmin && <TableHead>Cliente</TableHead>}
+                <TableHead>Tipo</TableHead>
                 <TableHead>Data Prevista</TableHead>
                 <TableHead>Data Recebimento</TableHead>
                 <TableHead>Status</TableHead>
@@ -238,13 +258,13 @@ export default function Receiving() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : filteredOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8">
                     Nenhuma ordem encontrada
                   </TableCell>
                 </TableRow>
@@ -252,6 +272,11 @@ export default function Receiving() {
                 filteredOrders.map(order => {
                   const status = statusConfig[order.status];
                   const StatusIcon = status.icon;
+                  const orderData = order as any;
+                  const isTemporary = orderData.is_temporary;
+                  const isDischarged = orderData.discharged_at;
+                  const canDischarge = isTemporary && order.status === "completed" && !isDischarged;
+                  
                   return (
                     <TableRow key={order.id}>
                       <TableCell className="font-mono">
@@ -260,9 +285,34 @@ export default function Receiving() {
                       <TableCell>{order.supplier_name || "-"}</TableCell>
                       {isAdmin && (
                         <TableCell className="text-muted-foreground">
-                          {(order as any).clients?.company_name || "-"}
+                          {orderData.clients?.company_name || "-"}
                         </TableCell>
                       )}
+                      <TableCell>
+                        {isTemporary ? (
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="gap-1 w-fit">
+                              <Timer className="h-3 w-3" />
+                              Temporário
+                            </Badge>
+                            {order.status === "completed" && !isDischarged && (
+                              <span className="text-xs text-muted-foreground">
+                                {getStorageDays(order)} dias
+                              </span>
+                            )}
+                            {isDischarged && (
+                              <Badge variant="secondary" className="gap-1 w-fit text-xs">
+                                <PackageX className="h-3 w-3" />
+                                Baixa
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <Badge variant="secondary" className="gap-1">
+                            Definitivo
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{formatDate(order.expected_date)}</TableCell>
                       <TableCell>{formatDate(order.received_date)}</TableCell>
                       <TableCell>
@@ -299,6 +349,16 @@ export default function Receiving() {
                               <ClipboardCheck className="h-4 w-4" />
                             </Button>
                           )}
+                          {canDischarge && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDischargingOrder(order)}
+                              title="Dar Baixa"
+                            >
+                              <PackageX className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -329,6 +389,16 @@ export default function Receiving() {
           open={!!inspectingOrder}
           onOpenChange={() => setInspectingOrder(null)}
           order={inspectingOrder}
+          onSuccess={fetchOrders}
+        />
+      )}
+
+      {/* Discharge Dialog */}
+      {dischargingOrder && (
+        <ReceivingDischargeDialog
+          open={!!dischargingOrder}
+          onOpenChange={() => setDischargingOrder(null)}
+          order={dischargingOrder}
           onSuccess={fetchOrders}
         />
       )}

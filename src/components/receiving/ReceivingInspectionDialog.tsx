@@ -144,6 +144,9 @@ export function ReceivingInspectionDialog({
         }
       }
 
+      // Check if it's a temporary cargo
+      const isTemporary = (order as any).is_temporary;
+
       // Update each item
       for (const item of items) {
         const { error: itemError } = await supabase
@@ -153,13 +156,14 @@ export function ReceivingInspectionDialog({
             has_damage: item.has_damage,
             damage_notes: item.damage_notes,
             location_id: item.location_id,
+            is_stored: !isTemporary,
           })
           .eq("id", item.id);
 
         if (itemError) throw itemError;
 
-        // Update product stock
-        if (item.received_quantity && item.received_quantity > 0) {
+        // Only update product stock if NOT temporary cargo
+        if (!isTemporary && item.received_quantity && item.received_quantity > 0) {
           const product = item.product;
           if (product) {
             const newQuantity = product.quantity + item.received_quantity;

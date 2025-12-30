@@ -413,6 +413,7 @@ export type Database = {
           expected_quantity: number
           has_damage: boolean | null
           id: string
+          is_stored: boolean | null
           location_id: string | null
           product_id: string
           received_quantity: number | null
@@ -425,6 +426,7 @@ export type Database = {
           expected_quantity?: number
           has_damage?: boolean | null
           id?: string
+          is_stored?: boolean | null
           location_id?: string | null
           product_id: string
           received_quantity?: number | null
@@ -437,6 +439,7 @@ export type Database = {
           expected_quantity?: number
           has_damage?: boolean | null
           id?: string
+          is_stored?: boolean | null
           location_id?: string | null
           product_id?: string
           received_quantity?: number | null
@@ -473,10 +476,13 @@ export type Database = {
           completed_by: string | null
           created_at: string
           created_by: string
+          discharged_at: string | null
+          discharged_by: string | null
           expected_date: string | null
           id: string
           invoice_number: string | null
           invoice_url: string | null
+          is_temporary: boolean | null
           notes: string | null
           received_date: string | null
           status: Database["public"]["Enums"]["receiving_status"]
@@ -488,10 +494,13 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           created_by: string
+          discharged_at?: string | null
+          discharged_by?: string | null
           expected_date?: string | null
           id?: string
           invoice_number?: string | null
           invoice_url?: string | null
+          is_temporary?: boolean | null
           notes?: string | null
           received_date?: string | null
           status?: Database["public"]["Enums"]["receiving_status"]
@@ -503,10 +512,13 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           created_by?: string
+          discharged_at?: string | null
+          discharged_by?: string | null
           expected_date?: string | null
           id?: string
           invoice_number?: string | null
           invoice_url?: string | null
+          is_temporary?: boolean | null
           notes?: string | null
           received_date?: string | null
           status?: Database["public"]["Enums"]["receiving_status"]
@@ -789,6 +801,10 @@ export type Database = {
       }
       calculate_product_m3: {
         Args: { depth_cm: number; height_cm: number; width_cm: number }
+        Returns: number
+      }
+      calculate_storage_days: {
+        Args: { discharged_at: string; received_date: string }
         Returns: number
       }
       get_user_client_id: { Args: { _user_id: string }; Returns: string }
