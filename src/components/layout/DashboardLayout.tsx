@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLogAccess } from '@/hooks/useLogAccess';
 import { Navigate } from 'react-router-dom';
-import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText, MapPin, PackageCheck, ClipboardList, BarChart3, UserCog, ArrowLeft } from 'lucide-react';
+import { Loader2, Package, LayoutDashboard, BoxesIcon, Users, Truck, ArrowDownUp, LogOut, Menu, ScrollText, MapPin, PackageCheck, ClipboardList, BarChart3, UserCog, ArrowLeft, DollarSign } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -92,7 +92,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   if (isAdmin) {
     navItems.splice(2, 0, { to: '/clients', icon: Users, label: 'Clientes' });
     navItems.push({ to: '/locations', icon: MapPin, label: 'Localizações' });
-    navItems.push({ to: '/reports', icon: BarChart3, label: 'Relatórios' });
+    navItems.push({ to: '/reports', icon: BarChart3, label: 'Operacional' });
+    navItems.push({ to: '/financial', icon: DollarSign, label: 'Financeiro' });
     navItems.push({ to: '/users', icon: UserCog, label: 'Usuários' });
   }
 
