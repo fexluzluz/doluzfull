@@ -592,6 +592,7 @@ export type Database = {
           recipient_postal_code: string
           recipient_state: string
           shipping_label_url: string | null
+          shipping_method: string | null
           status: Database["public"]["Enums"]["shipment_status"]
           tracking_code: string | null
           updated_at: string
@@ -613,6 +614,7 @@ export type Database = {
           recipient_postal_code: string
           recipient_state: string
           shipping_label_url?: string | null
+          shipping_method?: string | null
           status?: Database["public"]["Enums"]["shipment_status"]
           tracking_code?: string | null
           updated_at?: string
@@ -634,6 +636,7 @@ export type Database = {
           recipient_postal_code?: string
           recipient_state?: string
           shipping_label_url?: string | null
+          shipping_method?: string | null
           status?: Database["public"]["Enums"]["shipment_status"]
           tracking_code?: string | null
           updated_at?: string

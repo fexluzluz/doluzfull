@@ -12,21 +12,49 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Minus, Package, Search, Upload, FileText, Tag, ChevronsUpDown, Check } from 'lucide-react';
+import { Loader2, Plus, Minus, Package, Search, Upload, FileText, Tag, ChevronsUpDown, Check, Truck } from 'lucide-react';
 import { z } from 'zod';
 import { brazilianStates, cn } from '@/lib/utils';
 import { useCepLookup } from '@/hooks/useCepLookup';
 
-const shipmentSchema = z.object({
-  recipient_name: z.string().min(2, 'Nome do destinatário é obrigatório').max(200),
-  recipient_phone: z.string().max(20).optional(),
-  recipient_email: z.string().email('Email inválido').optional().or(z.literal('')),
-  recipient_address: z.string().min(5, 'Endereço é obrigatório').max(300),
-  recipient_city: z.string().min(2, 'Cidade é obrigatória').max(100),
-  recipient_state: z.string().length(2, 'Selecione o estado'),
-  recipient_postal_code: z.string().min(8, 'CEP é obrigatório').max(10),
-  notes: z.string().max(500).optional(),
-});
+// Shipping methods configuration
+const SHIPPING_METHODS = [
+  { value: 'correios_avulso', label: 'Correios Avulso', requiresAddress: true },
+  { value: 'flex_avulso', label: 'Flex Avulso', requiresAddress: true },
+  { value: 'mercadolivre_agencia', label: 'Mercado Livre Agência', requiresAddress: false },
+  { value: 'mercadolivre_correios', label: 'Mercado Livre Correios', requiresAddress: false },
+  { value: 'shopee_agencia', label: 'Shopee Agência', requiresAddress: false },
+  { value: 'shopee_flex', label: 'Shopee Flex', requiresAddress: false },
+  { value: 'other', label: 'Outras', requiresAddress: true },
+] as const;
+
+type ShippingMethod = typeof SHIPPING_METHODS[number]['value'];
+
+// Dynamic schema based on shipping method
+const createShipmentSchema = (requiresAddress: boolean) => {
+  if (requiresAddress) {
+    return z.object({
+      recipient_name: z.string().min(2, 'Nome do destinatário é obrigatório').max(200),
+      recipient_phone: z.string().max(20).optional(),
+      recipient_email: z.string().email('Email inválido').optional().or(z.literal('')),
+      recipient_address: z.string().min(5, 'Endereço é obrigatório').max(300),
+      recipient_city: z.string().min(2, 'Cidade é obrigatória').max(100),
+      recipient_state: z.string().length(2, 'Selecione o estado'),
+      recipient_postal_code: z.string().min(8, 'CEP é obrigatório').max(10),
+      notes: z.string().max(500).optional(),
+    });
+  }
+  return z.object({
+    recipient_name: z.string().max(200).optional(),
+    recipient_phone: z.string().max(20).optional(),
+    recipient_email: z.string().email('Email inválido').optional().or(z.literal('')),
+    recipient_address: z.string().max(300).optional(),
+    recipient_city: z.string().max(100).optional(),
+    recipient_state: z.string().max(2).optional(),
+    recipient_postal_code: z.string().max(10).optional(),
+    notes: z.string().max(500).optional(),
+  });
+};
 
 interface ShipmentFormProps {
   onSuccess: () => void;
@@ -171,6 +199,11 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [labelFile, setLabelFile] = useState<File | null>(null);
   const [handlingFee, setHandlingFee] = useState<number>(4.50);
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>('other');
+
+  // Check if current shipping method requires address
+  const currentMethodConfig = SHIPPING_METHODS.find(m => m.value === shippingMethod);
+  const requiresAddress = currentMethodConfig?.requiresAddress ?? true;
 
   const [formData, setFormData] = useState({
     recipient_name: '',
@@ -301,7 +334,8 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
     e.preventDefault();
     setErrors({});
 
-    // Validate form
+    // Validate form based on shipping method
+    const shipmentSchema = createShipmentSchema(requiresAddress);
     const result = shipmentSchema.safeParse({
       ...formData,
       recipient_email: formData.recipient_email || undefined,
@@ -387,24 +421,25 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
         labelUrl = urlData.publicUrl;
       }
 
-      // Create shipment request with handling total
+      // Create shipment request with handling total and shipping method
       const { data: shipmentData, error: shipmentError } = await supabase
         .from('shipment_requests')
         .insert({
           client_id: clientToUse,
-          recipient_name: formData.recipient_name,
+          recipient_name: formData.recipient_name || currentMethodConfig?.label || '',
           recipient_phone: formData.recipient_phone || null,
           recipient_email: formData.recipient_email || null,
-          recipient_address: formData.recipient_address,
-          recipient_city: formData.recipient_city,
-          recipient_state: formData.recipient_state,
-          recipient_postal_code: formData.recipient_postal_code,
+          recipient_address: formData.recipient_address || '-',
+          recipient_city: formData.recipient_city || '-',
+          recipient_state: formData.recipient_state || 'SP',
+          recipient_postal_code: formData.recipient_postal_code || '00000-000',
           notes: formData.notes || null,
           created_by: user?.id,
           status: 'pending',
           invoice_url: invoiceUrl,
           shipping_label_url: labelUrl,
           handling_total: totalHandling,
+          shipping_method: shippingMethod,
         })
         .select()
         .single();
@@ -453,13 +488,14 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
         action_type: 'shipment_created',
         entity_type: 'shipment',
         entity_id: shipmentData.id,
-        description: `Pedido criado para ${formData.recipient_name} (${formData.recipient_city}/${formData.recipient_state}) com ${totalItems} itens`,
+        description: `Pedido criado via ${currentMethodConfig?.label} para ${formData.recipient_name || 'marketplace'} com ${totalItems} itens`,
         details: { 
-          recipient: formData.recipient_name,
-          city: formData.recipient_city,
-          state: formData.recipient_state,
+          recipient: formData.recipient_name || currentMethodConfig?.label,
+          city: formData.recipient_city || '-',
+          state: formData.recipient_state || '-',
           items_count: totalItems,
           handling_total: totalHandling,
+          shipping_method: shippingMethod,
         },
         client_id: clientToUse,
       });
@@ -499,6 +535,31 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
         </div>
       )}
 
+      {/* Shipping Method Selection */}
+      <div className="space-y-2">
+        <Label className="flex items-center gap-2">
+          <Truck className="h-4 w-4" />
+          Modelo de Envio *
+        </Label>
+        <Select value={shippingMethod} onValueChange={(v) => setShippingMethod(v as ShippingMethod)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione o modelo de envio" />
+          </SelectTrigger>
+          <SelectContent>
+            {SHIPPING_METHODS.map((method) => (
+              <SelectItem key={method.value} value={method.value}>
+                {method.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {!requiresAddress && (
+          <p className="text-xs text-muted-foreground">
+            Para envios via marketplace, apenas a NF e Etiqueta são necessários.
+          </p>
+        )}
+      </div>
+
       {/* Products Selection */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -537,133 +598,150 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
 
       <Separator />
 
-      {/* Recipient Data */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">Dados do Destinatário</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2 space-y-2">
-            <Label htmlFor="recipient_name">Nome *</Label>
-            <Input
-              id="recipient_name"
-              value={formData.recipient_name}
-              onChange={(e) => handleChange('recipient_name', e.target.value)}
-              placeholder="Nome do destinatário"
-              maxLength={200}
-            />
-            {errors.recipient_name && (
-              <p className="text-sm text-destructive">{errors.recipient_name}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="recipient_phone">Telefone</Label>
-            <Input
-              id="recipient_phone"
-              value={formData.recipient_phone}
-              onChange={(e) => handleChange('recipient_phone', e.target.value)}
-              placeholder="(00) 00000-0000"
-              maxLength={20}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="recipient_email">Email</Label>
-            <Input
-              id="recipient_email"
-              type="email"
-              value={formData.recipient_email}
-              onChange={(e) => handleChange('recipient_email', e.target.value)}
-              placeholder="email@exemplo.com"
-            />
-            {errors.recipient_email && (
-              <p className="text-sm text-destructive">{errors.recipient_email}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="recipient_postal_code">CEP *</Label>
-            <div className="relative">
+      {/* Recipient Data - Only show if shipping method requires address */}
+      {requiresAddress && (
+        <div>
+          <h3 className="text-sm font-medium mb-3">Dados do Destinatário</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="recipient_name">Nome *</Label>
               <Input
-                id="recipient_postal_code"
-                value={formData.recipient_postal_code}
-                onChange={(e) => handleCepChange(e.target.value)}
-                placeholder="00000-000"
-                maxLength={10}
+                id="recipient_name"
+                value={formData.recipient_name}
+                onChange={(e) => handleChange('recipient_name', e.target.value)}
+                placeholder="Nome do destinatário"
+                maxLength={200}
               />
-              {isCepLoading && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
+              {errors.recipient_name && (
+                <p className="text-sm text-destructive">{errors.recipient_name}</p>
               )}
             </div>
-            {errors.recipient_postal_code && (
-              <p className="text-sm text-destructive">{errors.recipient_postal_code}</p>
-            )}
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="recipient_state">Estado *</Label>
-            <Select
-              value={formData.recipient_state}
-              onValueChange={(v) => handleChange('recipient_state', v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {brazilianStates.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.recipient_state && (
-              <p className="text-sm text-destructive">{errors.recipient_state}</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="recipient_phone">Telefone</Label>
+              <Input
+                id="recipient_phone"
+                value={formData.recipient_phone}
+                onChange={(e) => handleChange('recipient_phone', e.target.value)}
+                placeholder="(00) 00000-0000"
+                maxLength={20}
+              />
+            </div>
 
-          <div className="col-span-2 space-y-2">
-            <Label htmlFor="recipient_address">Endereço *</Label>
-            <Input
-              id="recipient_address"
-              value={formData.recipient_address}
-              onChange={(e) => handleChange('recipient_address', e.target.value)}
-              placeholder="Rua, número, complemento"
-              maxLength={300}
-            />
-            {errors.recipient_address && (
-              <p className="text-sm text-destructive">{errors.recipient_address}</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="recipient_email">Email</Label>
+              <Input
+                id="recipient_email"
+                type="email"
+                value={formData.recipient_email}
+                onChange={(e) => handleChange('recipient_email', e.target.value)}
+                placeholder="email@exemplo.com"
+              />
+              {errors.recipient_email && (
+                <p className="text-sm text-destructive">{errors.recipient_email}</p>
+              )}
+            </div>
 
-          <div className="col-span-2 space-y-2">
-            <Label htmlFor="recipient_city">Cidade *</Label>
-            <Input
-              id="recipient_city"
-              value={formData.recipient_city}
-              onChange={(e) => handleChange('recipient_city', e.target.value)}
-              placeholder="Cidade"
-              maxLength={100}
-            />
-            {errors.recipient_city && (
-              <p className="text-sm text-destructive">{errors.recipient_city}</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="recipient_postal_code">CEP *</Label>
+              <div className="relative">
+                <Input
+                  id="recipient_postal_code"
+                  value={formData.recipient_postal_code}
+                  onChange={(e) => handleCepChange(e.target.value)}
+                  placeholder="00000-000"
+                  maxLength={10}
+                />
+                {isCepLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              {errors.recipient_postal_code && (
+                <p className="text-sm text-destructive">{errors.recipient_postal_code}</p>
+              )}
+            </div>
 
-          <div className="col-span-2 space-y-2">
-            <Label htmlFor="notes">Observações</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => handleChange('notes', e.target.value)}
-              placeholder="Instruções especiais para o envio..."
-              maxLength={500}
-              rows={2}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="recipient_state">Estado *</Label>
+              <Select
+                value={formData.recipient_state}
+                onValueChange={(v) => handleChange('recipient_state', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {brazilianStates.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.recipient_state && (
+                <p className="text-sm text-destructive">{errors.recipient_state}</p>
+              )}
+            </div>
+
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="recipient_address">Endereço *</Label>
+              <Input
+                id="recipient_address"
+                value={formData.recipient_address}
+                onChange={(e) => handleChange('recipient_address', e.target.value)}
+                placeholder="Rua, número, complemento"
+                maxLength={300}
+              />
+              {errors.recipient_address && (
+                <p className="text-sm text-destructive">{errors.recipient_address}</p>
+              )}
+            </div>
+
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="recipient_city">Cidade *</Label>
+              <Input
+                id="recipient_city"
+                value={formData.recipient_city}
+                onChange={(e) => handleChange('recipient_city', e.target.value)}
+                placeholder="Cidade"
+                maxLength={100}
+              />
+              {errors.recipient_city && (
+                <p className="text-sm text-destructive">{errors.recipient_city}</p>
+              )}
+            </div>
+
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => handleChange('notes', e.target.value)}
+                placeholder="Instruções especiais para o envio..."
+                maxLength={500}
+                rows={2}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Notes for marketplace shipments */}
+      {!requiresAddress && (
+        <div className="space-y-2">
+          <Label htmlFor="notes">Observações</Label>
+          <Textarea
+            id="notes"
+            value={formData.notes}
+            onChange={(e) => handleChange('notes', e.target.value)}
+            placeholder="Instruções especiais para o envio..."
+            maxLength={500}
+            rows={2}
+          />
+        </div>
+      )}
 
       <Separator />
 
