@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Product, Client } from "@/types/database";
-import { Plus, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Trash2, Clock } from "lucide-react";
 import { z } from "zod";
 
 const receivingSchema = z.object({
@@ -42,6 +43,7 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [items, setItems] = useState<ItemRow[]>([{ product_id: "", expected_quantity: 1 }]);
+  const [isTemporary, setIsTemporary] = useState(false);
   const [formData, setFormData] = useState({
     invoice_number: "",
     supplier_name: "",
@@ -135,6 +137,7 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
           notes: formData.notes || null,
           created_by: user?.id,
           status: 'pending',
+          is_temporary: isTemporary,
         }])
         .select()
         .single();
@@ -147,6 +150,7 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
         product_id: item.product_id,
         expected_quantity: item.expected_quantity,
         received_quantity: 0,
+        is_stored: !isTemporary, // Temporary cargo won't be stored in main inventory
       }));
 
       const { error: itemsError } = await supabase
@@ -245,6 +249,23 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
           onChange={handleChange}
           placeholder="Observações sobre o recebimento"
           rows={2}
+        />
+      </div>
+
+      {/* Temporary cargo toggle */}
+      <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+        <div className="flex items-center gap-3">
+          <Clock className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <p className="font-medium text-sm">Carga Temporária</p>
+            <p className="text-xs text-muted-foreground">
+              Itens que serão armazenados por um período e depois retirados
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={isTemporary}
+          onCheckedChange={setIsTemporary}
         />
       </div>
 

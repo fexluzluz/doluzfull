@@ -231,6 +231,9 @@ export interface ReceivingOrder {
   notes: string | null;
   created_by: string;
   completed_by: string | null;
+  is_temporary: boolean;
+  discharged_at: string | null;
+  discharged_by: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -247,6 +250,7 @@ export interface ReceivingItem {
   has_damage: boolean;
   damage_notes: string | null;
   location_id: string | null;
+  is_stored: boolean;
   created_at: string;
   updated_at: string;
   // Joined data
