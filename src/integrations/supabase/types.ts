@@ -778,6 +778,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_billable_m3: {
+        Args: {
+          depth_cm: number
+          height_cm: number
+          quantity: number
+          width_cm: number
+        }
+        Returns: number
+      }
       calculate_product_m3: {
         Args: { depth_cm: number; height_cm: number; width_cm: number }
         Returns: number
