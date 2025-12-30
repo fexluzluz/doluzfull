@@ -41,8 +41,9 @@ import {
   ClipboardCheck,
   FileText,
   Truck,
-  PackageX,
+  LogOut,
   Timer,
+  LogIn,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -301,14 +302,15 @@ export default function Receiving() {
                               </span>
                             )}
                             {order.status === "completed" && !isDischarged && (
-                              <span className="text-xs text-muted-foreground">
-                                {getStorageDays(order)} dias
-                              </span>
+                              <Badge variant="default" className="gap-1 w-fit text-xs">
+                                <LogIn className="h-3 w-3" />
+                                Entrada - {getStorageDays(order)} dias
+                              </Badge>
                             )}
                             {isDischarged && (
-                              <Badge variant="secondary" className="gap-1 w-fit text-xs">
-                                <PackageX className="h-3 w-3" />
-                                Baixa
+                              <Badge variant="outline" className="gap-1 w-fit text-xs">
+                                <LogOut className="h-3 w-3" />
+                                Saída
                               </Badge>
                             )}
                           </div>
@@ -359,9 +361,9 @@ export default function Receiving() {
                               variant="ghost"
                               size="icon"
                               onClick={() => setDischargingOrder(order)}
-                              title="Dar Baixa"
+                              title="Registrar Saída"
                             >
-                              <PackageX className="h-4 w-4" />
+                              <LogOut className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
