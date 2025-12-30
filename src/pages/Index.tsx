@@ -81,6 +81,7 @@ export default function Dashboard() {
           .limit(5);
 
         let totalSpace = 0;
+        let temporarySpace = 0;
         let clientsCount = 0;
 
         if (isAdmin) {
@@ -91,6 +92,15 @@ export default function Dashboard() {
           
           totalSpace = clientsData?.reduce((sum, c) => sum + Number(c.total_space_m3 || 0), 0) || 0;
           clientsCount = clientsData?.length || 0;
+
+          // Fetch temporary storage space (receiving orders not completed)
+          const { data: tempReceiving } = await supabase
+            .from('receiving_orders')
+            .select('temporary_volume_m3')
+            .eq('is_temporary', true)
+            .neq('status', 'completed');
+          
+          temporarySpace = tempReceiving?.reduce((sum, r) => sum + Number(r.temporary_volume_m3 || 0), 0) || 0;
         } else if (clientId) {
           const { data: clientData } = await supabase
             .from('clients')
@@ -99,12 +109,22 @@ export default function Dashboard() {
             .maybeSingle();
           
           totalSpace = Number(clientData?.total_space_m3 || 0);
+
+          // Fetch temporary storage space for this client
+          const { data: tempReceiving } = await supabase
+            .from('receiving_orders')
+            .select('temporary_volume_m3')
+            .eq('client_id', clientId)
+            .eq('is_temporary', true)
+            .neq('status', 'completed');
+          
+          temporarySpace = tempReceiving?.reduce((sum, r) => sum + Number(r.temporary_volume_m3 || 0), 0) || 0;
         }
 
         setStats({
           totalProducts: productsCount || 0,
           totalClients: clientsCount,
-          totalSpaceM3: totalSpace,
+          totalSpaceM3: totalSpace + temporarySpace,
           pendingShipments: pendingCount || 0,
           lowStockCount: lowStockData?.filter(p => p.quantity <= (p.min_stock_alert || 5)).length || 0,
         });
