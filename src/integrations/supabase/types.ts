@@ -833,7 +833,12 @@ export type Database = {
         | "packing"
         | "packed"
         | "ready"
-      receiving_status: "pending" | "inspecting" | "completed" | "cancelled"
+      receiving_status:
+        | "pending"
+        | "inspecting"
+        | "completed"
+        | "cancelled"
+        | "awaiting_pickup"
       shipment_status:
         | "pending"
         | "processing"
@@ -976,7 +981,13 @@ export const Constants = {
         "packed",
         "ready",
       ],
-      receiving_status: ["pending", "inspecting", "completed", "cancelled"],
+      receiving_status: [
+        "pending",
+        "inspecting",
+        "completed",
+        "cancelled",
+        "awaiting_pickup",
+      ],
       shipment_status: [
         "pending",
         "processing",

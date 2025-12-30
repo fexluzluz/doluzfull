@@ -93,12 +93,13 @@ export default function Dashboard() {
           totalSpace = clientsData?.reduce((sum, c) => sum + Number(c.total_space_m3 || 0), 0) || 0;
           clientsCount = clientsData?.length || 0;
 
-          // Fetch temporary storage space (receiving orders not completed)
+          // Fetch temporary storage space (receiving orders awaiting pickup or completed but not discharged)
           const { data: tempReceiving } = await supabase
             .from('receiving_orders')
-            .select('temporary_volume_m3')
+            .select('temporary_volume_m3, status, discharged_at')
             .eq('is_temporary', true)
-            .neq('status', 'completed');
+            .in('status', ['inspecting', 'awaiting_pickup', 'completed'])
+            .is('discharged_at', null);
           
           temporarySpace = tempReceiving?.reduce((sum, r) => sum + Number(r.temporary_volume_m3 || 0), 0) || 0;
         } else if (clientId) {
@@ -110,13 +111,14 @@ export default function Dashboard() {
           
           totalSpace = Number(clientData?.total_space_m3 || 0);
 
-          // Fetch temporary storage space for this client
+          // Fetch temporary storage space for this client (awaiting pickup or completed but not discharged)
           const { data: tempReceiving } = await supabase
             .from('receiving_orders')
-            .select('temporary_volume_m3')
+            .select('temporary_volume_m3, status, discharged_at')
             .eq('client_id', clientId)
             .eq('is_temporary', true)
-            .neq('status', 'completed');
+            .in('status', ['inspecting', 'awaiting_pickup', 'completed'])
+            .is('discharged_at', null);
           
           temporarySpace = tempReceiving?.reduce((sum, r) => sum + Number(r.temporary_volume_m3 || 0), 0) || 0;
         }

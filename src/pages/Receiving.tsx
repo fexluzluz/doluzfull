@@ -44,6 +44,7 @@ import {
   LogOut,
   Timer,
   LogIn,
+  PackageCheck,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -51,6 +52,7 @@ import { ptBR } from "date-fns/locale";
 const statusConfig: Record<ReceivingStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
   pending: { label: "Pendente", variant: "secondary", icon: Clock },
   inspecting: { label: "Em Conferência", variant: "default", icon: ClipboardCheck },
+  awaiting_pickup: { label: "Aguardando Coleta", variant: "default", icon: PackageCheck },
   completed: { label: "Concluído", variant: "outline", icon: CheckCircle2 },
   cancelled: { label: "Cancelado", variant: "destructive", icon: XCircle },
 };
@@ -70,6 +72,7 @@ export default function Receiving() {
     total: 0,
     pending: 0,
     inspecting: 0,
+    awaiting_pickup: 0,
     completed: 0,
     temporary: 0,
   });
@@ -118,8 +121,9 @@ export default function Receiving() {
         total: ordersData.length,
         pending: ordersData.filter(o => o.status === "pending").length,
         inspecting: ordersData.filter(o => o.status === "inspecting").length,
+        awaiting_pickup: ordersData.filter(o => o.status === "awaiting_pickup").length,
         completed: ordersData.filter(o => o.status === "completed").length,
-        temporary: ordersData.filter(o => (o as any).is_temporary && o.status === "completed" && !(o as any).discharged_at).length,
+        temporary: ordersData.filter(o => (o as any).is_temporary && (o.status === "completed" || o.status === "awaiting_pickup") && !(o as any).discharged_at).length,
       });
     } catch (error) {
       toast({
@@ -168,7 +172,7 @@ export default function Receiving() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -194,6 +198,15 @@ export default function Receiving() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.inspecting}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Aguard. Coleta</CardTitle>
+              <PackageCheck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.awaiting_pickup}</div>
             </CardContent>
           </Card>
           <Card>
@@ -235,6 +248,7 @@ export default function Receiving() {
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="pending">Pendentes</SelectItem>
               <SelectItem value="inspecting">Em Conferência</SelectItem>
+              <SelectItem value="awaiting_pickup">Aguardando Coleta</SelectItem>
               <SelectItem value="completed">Concluídos</SelectItem>
               <SelectItem value="cancelled">Cancelados</SelectItem>
             </SelectContent>
@@ -276,7 +290,7 @@ export default function Receiving() {
                   const orderData = order as any;
                   const isTemporary = orderData.is_temporary;
                   const isDischarged = orderData.discharged_at;
-                  const canDischarge = isTemporary && order.status === "completed" && !isDischarged;
+                  const canDischarge = isTemporary && (order.status === "completed" || order.status === "awaiting_pickup") && !isDischarged;
                   
                   return (
                     <TableRow key={order.id}>
@@ -301,7 +315,7 @@ export default function Receiving() {
                                 {orderData.temporary_volume_m3.toFixed(2)} m³
                               </span>
                             )}
-                            {order.status === "completed" && !isDischarged && (
+                            {(order.status === "completed" || order.status === "awaiting_pickup") && !isDischarged && (
                               <Badge variant="default" className="gap-1 w-fit text-xs">
                                 <LogIn className="h-3 w-3" />
                                 Entrada - {getStorageDays(order)} dias
