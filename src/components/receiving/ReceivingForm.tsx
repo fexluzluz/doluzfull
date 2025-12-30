@@ -118,8 +118,11 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
       receivingSchema.parse(formData);
 
       const validItems = items.filter(item => item.product_id && item.expected_quantity > 0);
-      if (validItems.length === 0) {
-        throw new Error("Adicione pelo menos um produto");
+      const hasVolume = isTemporary && parseFloat(temporaryVolumeM3) > 0;
+      
+      // Products are only required if it's not a temporary cargo with volume
+      if (validItems.length === 0 && !hasVolume) {
+        throw new Error("Adicione pelo menos um produto ou informe o volume da carga temporária");
       }
 
       const targetClientId = isAdmin ? selectedClientId : clientId;
@@ -147,19 +150,22 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
       if (orderError) throw orderError;
 
       // Create receiving items
-      const itemsToInsert = validItems.map(item => ({
-        receiving_id: order.id,
-        product_id: item.product_id,
-        expected_quantity: item.expected_quantity,
-        received_quantity: 0,
-        is_stored: !isTemporary, // Temporary cargo won't be stored in main inventory
-      }));
+      // Only insert items if there are valid ones
+      if (validItems.length > 0) {
+        const itemsToInsert = validItems.map(item => ({
+          receiving_id: order.id,
+          product_id: item.product_id,
+          expected_quantity: item.expected_quantity,
+          received_quantity: 0,
+          is_stored: !isTemporary, // Temporary cargo won't be stored in main inventory
+        }));
 
-      const { error: itemsError } = await supabase
-        .from("receiving_items")
-        .insert(itemsToInsert);
+        const { error: itemsError } = await supabase
+          .from("receiving_items")
+          .insert(itemsToInsert);
 
-      if (itemsError) throw itemsError;
+        if (itemsError) throw itemsError;
+      }
 
       toast({ title: "Ordem de recebimento criada com sucesso!" });
       onSuccess();
@@ -293,7 +299,12 @@ export function ReceivingForm({ onSuccess, onCancel }: ReceivingFormProps) {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label>Produtos *</Label>
+          <div>
+            <Label>Produtos {!(isTemporary && parseFloat(temporaryVolumeM3) > 0) && "*"}</Label>
+            {isTemporary && parseFloat(temporaryVolumeM3) > 0 && (
+              <p className="text-xs text-muted-foreground">Opcional quando m³ informado</p>
+            )}
+          </div>
           <Button
             type="button"
             variant="outline"
