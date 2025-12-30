@@ -45,6 +45,7 @@ import {
   Timer,
   LogIn,
   PackageCheck,
+  ArrowRightLeft,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -152,6 +153,29 @@ export default function Receiving() {
   const getStorageDays = (order: any) => {
     if (!order.received_date) return 0;
     return Math.max(1, differenceInDays(new Date(), new Date(order.received_date)));
+  };
+
+  const handleToggleStatus = async (order: ReceivingOrder) => {
+    const newStatus = order.status === "awaiting_pickup" ? "completed" : "awaiting_pickup";
+    try {
+      const { error } = await supabase
+        .from("receiving_orders")
+        .update({ status: newStatus })
+        .eq("id", order.id);
+
+      if (error) throw error;
+
+      toast({
+        title: newStatus === "awaiting_pickup" ? "Aguardando Coleta" : "Concluído",
+        description: "Status atualizado com sucesso",
+      });
+      fetchOrders();
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar status",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -368,6 +392,16 @@ export default function Receiving() {
                               title="Conferir"
                             >
                               <ClipboardCheck className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {(order.status === "awaiting_pickup" || order.status === "completed") && !isDischarged && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleToggleStatus(order)}
+                              title={order.status === "awaiting_pickup" ? "Marcar como Concluído" : "Aguardando Coleta"}
+                            >
+                              <ArrowRightLeft className="h-4 w-4" />
                             </Button>
                           )}
                           {canDischarge && (
