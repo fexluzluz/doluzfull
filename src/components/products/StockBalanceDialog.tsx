@@ -66,7 +66,7 @@ export default function StockBalanceDialog({ product, onClose, onSuccess }: Stoc
       // Insert balance movement with operator info
       const { error: movementError } = await supabase.from('stock_movements').insert({
         product_id: product.id,
-        movement_type: 'balance',
+        movement_type: movementType,
         quantity: Math.abs(difference),
         previous_quantity: product.quantity,
         new_quantity: qty,
