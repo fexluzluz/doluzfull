@@ -149,6 +149,20 @@ export function ReceivingDischargeDialog({
                 {storageDays} {storageDays === 1 ? "dia" : "dias"}
               </p>
             </div>
+            {order.temporary_volume_m3 > 0 && (
+              <>
+                <div>
+                  <p className="text-sm text-muted-foreground">Volume (m³)</p>
+                  <p className="font-medium">{order.temporary_volume_m3.toFixed(2)} m³</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total m³ × Dias</p>
+                  <p className="font-medium text-primary">
+                    {(order.temporary_volume_m3 * storageDays).toFixed(2)} m³/dia
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Items summary */}

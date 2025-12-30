@@ -487,6 +487,7 @@ export type Database = {
           received_date: string | null
           status: Database["public"]["Enums"]["receiving_status"]
           supplier_name: string | null
+          temporary_volume_m3: number | null
           updated_at: string
         }
         Insert: {
@@ -505,6 +506,7 @@ export type Database = {
           received_date?: string | null
           status?: Database["public"]["Enums"]["receiving_status"]
           supplier_name?: string | null
+          temporary_volume_m3?: number | null
           updated_at?: string
         }
         Update: {
@@ -523,6 +525,7 @@ export type Database = {
           received_date?: string | null
           status?: Database["public"]["Enums"]["receiving_status"]
           supplier_name?: string | null
+          temporary_volume_m3?: number | null
           updated_at?: string
         }
         Relationships: [
