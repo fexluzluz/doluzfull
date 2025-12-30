@@ -4,7 +4,7 @@ export type AppRole = 'admin' | 'client' | 'employee';
 
 export type ShipmentStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
-export type ReceivingStatus = 'pending' | 'inspecting' | 'completed' | 'cancelled';
+export type ReceivingStatus = 'pending' | 'inspecting' | 'awaiting_pickup' | 'completed' | 'cancelled';
 
 export type PickingStatus = 'pending' | 'picking' | 'picked' | 'packing' | 'packed' | 'ready';
 
