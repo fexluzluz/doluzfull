@@ -52,6 +52,11 @@ export default function Products() {
         .select('*, clients(company_name)')
         .order('name');
 
+      // Filtrar por cliente para usuários não-admin
+      if (!isAdmin && clientId) {
+        query = query.eq('client_id', clientId);
+      }
+
       const { data, error } = await query;
 
       if (error) throw error;
@@ -110,7 +115,7 @@ export default function Products() {
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [isAdmin, clientId]);
 
   const handleDelete = async (product: Product) => {
     if (!confirm(`Tem certeza que deseja excluir "${product.name}"?`)) return;
