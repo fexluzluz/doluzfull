@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,6 +43,7 @@ interface ProductFormProps {
 }
 
 export default function ProductForm({ product, onSuccess, onCancel, isAdmin = false }: ProductFormProps) {
+  const { clientId: userClientId } = useAuth();
   const { toast } = useToast();
   const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
@@ -62,19 +64,22 @@ export default function ProductForm({ product, onSuccess, onCancel, isAdmin = fa
     quantity: product?.quantity || 0,
     min_stock_alert: product?.min_stock_alert ?? '',
     max_stock_alert: (product as any)?.max_stock_alert ?? '',
-    client_id: product?.client_id || '',
+    client_id: product?.client_id || userClientId || '',
   });
 
   useEffect(() => {
-    const fetchClients = async () => {
-      const { data } = await supabase
-        .from('clients')
-        .select('id, company_name')
-        .order('company_name');
-      setClients(data || []);
-    };
-    fetchClients();
-  }, []);
+    // Apenas admin precisa carregar lista de clientes
+    if (isAdmin) {
+      const fetchClients = async () => {
+        const { data } = await supabase
+          .from('clients')
+          .select('id, company_name')
+          .order('company_name');
+        setClients(data || []);
+      };
+      fetchClients();
+    }
+  }, [isAdmin]);
 
   const calculatedVolume = calculateVolumeM3(
     Number(formData.height_cm),
@@ -313,8 +318,8 @@ export default function ProductForm({ product, onSuccess, onCancel, isAdmin = fa
           </div>
         </div>
 
-        {/* Cliente */}
-        {!product && (
+        {/* Cliente - só mostra para admin ao criar novo produto */}
+        {!product && isAdmin && (
           <div className="col-span-2 space-y-2">
             <Label htmlFor="client_id">Cliente *</Label>
             <Select
