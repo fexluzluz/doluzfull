@@ -173,12 +173,10 @@ export default function Products() {
             <h1 className="page-title">Produtos</h1>
             <p className="page-description">Gerencie o estoque de produtos</p>
           </div>
-          {isAdmin && (
-            <Button onClick={() => { setEditingProduct(null); setIsFormOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Produto
-            </Button>
-          )}
+          <Button onClick={() => { setEditingProduct(null); setIsFormOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Produto
+          </Button>
         </div>
       </div>
 
