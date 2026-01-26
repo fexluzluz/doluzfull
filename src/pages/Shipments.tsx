@@ -68,10 +68,17 @@ export default function Shipments() {
 
   const fetchShipments = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('shipment_requests')
         .select('*, clients(company_name)')
         .order('created_at', { ascending: false });
+
+      // Filtrar por cliente para usuários não-admin
+      if (!isAdmin && clientId) {
+        query = query.eq('client_id', clientId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setShipments(data || []);
@@ -105,7 +112,7 @@ export default function Shipments() {
   useEffect(() => {
     fetchShipments();
     fetchClients();
-  }, [isAdmin]);
+  }, [isAdmin, clientId]);
 
   const handleCancelShipment = async () => {
     if (!cancellingShipment) return;
