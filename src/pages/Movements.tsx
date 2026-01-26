@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,17 +27,25 @@ interface Movement {
 }
 
 export default function Movements() {
+  const { isAdmin, clientId } = useAuth();
   const [movements, setMovements] = useState<Movement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchMovements = async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('stock_movements')
-          .select('*, products(name, sku, clients(company_name))')
+          .select('*, products!inner(name, sku, client_id, clients(company_name))')
           .order('created_at', { ascending: false })
           .limit(100);
+
+        // Filter by client_id if not admin
+        if (!isAdmin && clientId) {
+          query = query.eq('products.client_id', clientId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         setMovements(data || []);
@@ -48,7 +57,7 @@ export default function Movements() {
     };
 
     fetchMovements();
-  }, []);
+  }, [isAdmin, clientId]);
 
   return (
     <DashboardLayout>
