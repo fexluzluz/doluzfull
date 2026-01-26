@@ -88,12 +88,17 @@ export default function Dashboard() {
         }
         const { data: lowStockData } = await lowStockQuery;
 
-        // Fetch recent movements (will be filtered by RLS automatically)
-        const { data: movements } = await supabase
+        // Fetch recent movements (filtered by client if not admin)
+        let movementsQuery = supabase
           .from('stock_movements')
-          .select('*, products(name, sku)')
+          .select('*, products!inner(name, sku, client_id)')
           .order('created_at', { ascending: false })
           .limit(5);
+        
+        if (!isAdmin && clientId) {
+          movementsQuery = movementsQuery.eq('products.client_id', clientId);
+        }
+        const { data: movements } = await movementsQuery;
 
         let totalSpace = 0;
         let temporarySpace = 0;

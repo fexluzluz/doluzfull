@@ -33,7 +33,15 @@ export default function Movements() {
 
   useEffect(() => {
     const fetchMovements = async () => {
+      // Wait for auth to load - if not admin, we need clientId
+      if (!isAdmin && !clientId) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
+        setIsLoading(true);
+        
         let query = supabase
           .from('stock_movements')
           .select('*, products!inner(name, sku, client_id, clients(company_name))')
