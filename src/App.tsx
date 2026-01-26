@@ -17,6 +17,7 @@ import Picking from "./pages/Picking";
 import Reports from "./pages/Reports";
 import FinancialReport from "./pages/FinancialReport";
 import Users from "./pages/Users";
+import MyCompany from "./pages/MyCompany";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/reports" element={<Reports />} />
             <Route path="/financial" element={<FinancialReport />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/my-company" element={<MyCompany />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
