@@ -59,7 +59,7 @@ const statusConfig: Record<ReceivingStatus, { label: string; variant: "default" 
 };
 
 export default function Receiving() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, clientId } = useAuth();
   const { toast } = useToast();
   const [orders, setOrders] = useState<ReceivingOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<ReceivingOrder[]>([]);
@@ -80,7 +80,7 @@ export default function Receiving() {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [isAdmin, clientId]);
 
   useEffect(() => {
     let filtered = orders;
@@ -104,7 +104,7 @@ export default function Receiving() {
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("receiving_orders")
         .select(`
           *,
@@ -112,7 +112,12 @@ export default function Receiving() {
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      // Filtrar por cliente para usuários não-admin
+      if (!isAdmin && clientId) {
+        query = query.eq("client_id", clientId);
+      }
+
+      const { data, error } = await query;
 
       const ordersData = data as ReceivingOrder[];
       setOrders(ordersData);
@@ -162,6 +167,7 @@ export default function Receiving() {
         .from("receiving_orders")
         .update({ status: newStatus })
         .eq("id", order.id);
+
 
       if (error) throw error;
 
