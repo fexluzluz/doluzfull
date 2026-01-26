@@ -57,23 +57,38 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Fetch products count
-        const { count: productsCount } = await supabase
+        // Fetch products count (filtered by client if not admin)
+        let productsQuery = supabase
           .from('products')
           .select('*', { count: 'exact', head: true });
+        
+        if (!isAdmin && clientId) {
+          productsQuery = productsQuery.eq('client_id', clientId);
+        }
+        const { count: productsCount } = await productsQuery;
 
-        // Fetch pending shipments
-        const { count: pendingCount } = await supabase
+        // Fetch pending shipments (filtered by client if not admin)
+        let pendingQuery = supabase
           .from('shipment_requests')
           .select('*', { count: 'exact', head: true })
           .in('status', ['pending', 'processing']);
+        
+        if (!isAdmin && clientId) {
+          pendingQuery = pendingQuery.eq('client_id', clientId);
+        }
+        const { count: pendingCount } = await pendingQuery;
 
-        // Fetch low stock products
-        const { data: lowStockData } = await supabase
+        // Fetch low stock products (filtered by client if not admin)
+        let lowStockQuery = supabase
           .from('products')
           .select('id, quantity, min_stock_alert');
+        
+        if (!isAdmin && clientId) {
+          lowStockQuery = lowStockQuery.eq('client_id', clientId);
+        }
+        const { data: lowStockData } = await lowStockQuery;
 
-        // Fetch recent movements
+        // Fetch recent movements (will be filtered by RLS automatically)
         const { data: movements } = await supabase
           .from('stock_movements')
           .select('*, products(name, sku)')
@@ -149,24 +164,39 @@ export default function Dashboard() {
       const startDate = startOfDay(subDays(new Date(), days));
 
       try {
-        // Fetch movements for chart
-        const { data: movementsData } = await supabase
+        // Fetch movements for chart - need to join with products to filter by client
+        let movementsQuery = supabase
           .from('stock_movements')
-          .select('movement_type, created_at, quantity')
+          .select('movement_type, created_at, quantity, products!inner(client_id)')
           .gte('created_at', startDate.toISOString())
           .order('created_at');
+        
+        if (!isAdmin && clientId) {
+          movementsQuery = movementsQuery.eq('products.client_id', clientId);
+        }
+        const { data: movementsData } = await movementsQuery;
 
-        // Fetch shipments for chart
-        const { data: shipmentsData } = await supabase
+        // Fetch shipments for chart (filtered by client if not admin)
+        let shipmentsQuery = supabase
           .from('shipment_requests')
           .select('status, created_at, updated_at')
           .gte('created_at', startDate.toISOString())
           .order('created_at');
+        
+        if (!isAdmin && clientId) {
+          shipmentsQuery = shipmentsQuery.eq('client_id', clientId);
+        }
+        const { data: shipmentsData } = await shipmentsQuery;
 
-        // Fetch all shipments for status pie chart
-        const { data: allShipments } = await supabase
+        // Fetch all shipments for status pie chart (filtered by client if not admin)
+        let allShipmentsQuery = supabase
           .from('shipment_requests')
           .select('status');
+        
+        if (!isAdmin && clientId) {
+          allShipmentsQuery = allShipmentsQuery.eq('client_id', clientId);
+        }
+        const { data: allShipments } = await allShipmentsQuery;
 
         // Process movements data
         const dateRange = eachDayOfInterval({ start: startDate, end: new Date() });
@@ -271,7 +301,7 @@ export default function Dashboard() {
     };
 
     fetchChartData();
-  }, [period]);
+  }, [period, isAdmin, clientId]);
 
   const statCards = [
     {
