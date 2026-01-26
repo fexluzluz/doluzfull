@@ -80,26 +80,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     await refreshProfile();
   };
 
-  const navItems = [
-    { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/products', icon: BoxesIcon, label: 'Produtos' },
-    { to: '/receiving', icon: PackageCheck, label: 'Recebimento' },
-    { to: '/picking', icon: ClipboardList, label: 'Picking' },
-    { to: '/shipments', icon: Truck, label: 'Envios' },
-    { to: '/movements', icon: ArrowDownUp, label: 'Movimentações' },
-  ];
-
-  if (isAdmin) {
-    navItems.splice(2, 0, { to: '/clients', icon: Users, label: 'Clientes' });
-    navItems.push({ to: '/locations', icon: MapPin, label: 'Localizações' });
-    navItems.push({ to: '/reports', icon: BarChart3, label: 'Operacional' });
-    navItems.push({ to: '/financial', icon: DollarSign, label: 'Financeiro' });
-    navItems.push({ to: '/users', icon: UserCog, label: 'Usuários' });
-  }
-
-  if (hasLogAccess) {
-    navItems.push({ to: '/logs', icon: ScrollText, label: 'Logs' });
-  }
+  const navItems = isAdmin 
+    ? [
+        { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+        { to: '/products', icon: BoxesIcon, label: 'Produtos' },
+        { to: '/clients', icon: Users, label: 'Clientes' },
+        { to: '/receiving', icon: PackageCheck, label: 'Recebimento' },
+        { to: '/picking', icon: ClipboardList, label: 'Picking' },
+        { to: '/shipments', icon: Truck, label: 'Envios' },
+        { to: '/movements', icon: ArrowDownUp, label: 'Movimentações' },
+        { to: '/locations', icon: MapPin, label: 'Localizações' },
+        { to: '/reports', icon: BarChart3, label: 'Operacional' },
+        { to: '/financial', icon: DollarSign, label: 'Financeiro' },
+        { to: '/users', icon: UserCog, label: 'Usuários' },
+        ...(hasLogAccess ? [{ to: '/logs', icon: ScrollText, label: 'Logs' }] : []),
+      ]
+    : [
+        { to: '/products', icon: BoxesIcon, label: 'Produtos' },
+        { to: '/receiving', icon: PackageCheck, label: 'Recebimento' },
+        { to: '/my-company', icon: Users, label: 'Minha Empresa' },
+      ];
 
   const SidebarContent = () => (
     <>
