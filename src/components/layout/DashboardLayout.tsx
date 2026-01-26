@@ -98,6 +98,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     : [
         { to: '/products', icon: BoxesIcon, label: 'Produtos' },
         { to: '/receiving', icon: PackageCheck, label: 'Recebimento' },
+        { to: '/shipments', icon: Truck, label: 'Envios' },
         { to: '/my-company', icon: Users, label: 'Minha Empresa' },
       ];
 
