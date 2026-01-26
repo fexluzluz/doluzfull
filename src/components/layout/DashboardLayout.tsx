@@ -96,6 +96,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         ...(hasLogAccess ? [{ to: '/logs', icon: ScrollText, label: 'Logs' }] : []),
       ]
     : [
+        { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
         { to: '/products', icon: BoxesIcon, label: 'Produtos' },
         { to: '/receiving', icon: PackageCheck, label: 'Recebimento' },
         { to: '/shipments', icon: Truck, label: 'Envios' },
