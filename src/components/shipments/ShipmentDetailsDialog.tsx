@@ -4,8 +4,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent } from '@/components/ui/card';
-import { Truck, Package, MapPin, User, FileText, ExternalLink } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Truck, Package, MapPin, User, FileText, ExternalLink, DollarSign } from 'lucide-react';
 import { formatDateTime, translateShipmentStatus } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 interface ShipmentDetailsDialogProps {
   shipment: any;
@@ -13,12 +18,17 @@ interface ShipmentDetailsDialogProps {
 }
 
 export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDetailsDialogProps) {
+  const { isAdmin } = useAuth();
+  const { toast } = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [logisticsCost, setLogisticsCost] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (shipment) {
       fetchItems();
+      setLogisticsCost(shipment.logistics_cost?.toString() || '0');
     }
   }, [shipment]);
 
@@ -47,6 +57,34 @@ export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDet
       case 'delivered': return 'bg-success/20 text-success border-success/30';
       case 'cancelled': return 'bg-destructive/20 text-destructive border-destructive/30';
       default: return '';
+    }
+  };
+
+  const saveLogisticsCost = async () => {
+    if (!shipment) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('shipment_requests')
+        .update({ logistics_cost: parseFloat(logisticsCost) || 0 })
+        .eq('id', shipment.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Valor da logística atualizado',
+      });
+    } catch (error) {
+      console.error('Error saving logistics cost:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível salvar o valor',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -84,6 +122,48 @@ export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDet
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Logistics Cost - Admin Only */}
+            {isAdmin && (
+              <>
+                <Separator />
+                <div>
+                  <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Valor da Logística
+                  </h3>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Label htmlFor="logistics_cost" className="sr-only">Valor da Logística (R$)</Label>
+                          <Input
+                            id="logistics_cost"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={logisticsCost}
+                            onChange={(e) => setLogisticsCost(e.target.value)}
+                            placeholder="0.00"
+                            className="max-w-[200px]"
+                          />
+                        </div>
+                        <Button 
+                          onClick={saveLogisticsCost} 
+                          disabled={isSaving}
+                          size="sm"
+                        >
+                          {isSaving ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Valor cobrado do cliente pelo frete/logística
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
             )}
 
             <Separator />
