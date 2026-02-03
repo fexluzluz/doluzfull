@@ -26,7 +26,7 @@ const statusOptions = [
 ];
 
 export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: ShipmentStatusDialogProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
@@ -57,8 +57,12 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
       const updateData: any = {
         status,
         processed_by: user?.id,
-        logistics_cost: parseFloat(logisticsCost) || 0,
       };
+
+      // Only admin can update logistics cost
+      if (isAdmin) {
+        updateData.logistics_cost = parseFloat(logisticsCost) || 0;
+      }
 
       if (trackingCode.trim()) {
         updateData.tracking_code = trackingCode.trim();
@@ -181,21 +185,23 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="logistics_cost">Valor da Logística (R$)</Label>
-              <Input
-                id="logistics_cost"
-                type="number"
-                step="0.01"
-                min="0"
-                value={logisticsCost}
-                onChange={(e) => setLogisticsCost(e.target.value)}
-                placeholder="0.00"
-              />
-              <p className="text-xs text-muted-foreground">
-                Valor cobrado do cliente pelo frete/logística
-              </p>
-            </div>
+            {isAdmin && (
+              <div className="space-y-2">
+                <Label htmlFor="logistics_cost">Valor da Logística (R$)</Label>
+                <Input
+                  id="logistics_cost"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={logisticsCost}
+                  onChange={(e) => setLogisticsCost(e.target.value)}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Valor cobrado do cliente pelo frete/logística
+                </p>
+              </div>
+            )}
 
             {(status === 'shipped' || status === 'delivered') && (
               <div className="space-y-2">
