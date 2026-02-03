@@ -38,6 +38,7 @@ interface Shipment {
   tracking_code: string | null;
   shipping_label_url: string | null;
   invoice_url: string | null;
+  shipping_method: string | null;
   created_at: string;
   clients: {
     company_name: string;
@@ -212,6 +213,19 @@ export default function Shipments() {
     }
   };
 
+  const getShippingMethodLabel = (method: string | null) => {
+    const methods: Record<string, string> = {
+      'correios_avulso': 'Correios Avulso',
+      'flex_avulso': 'Flex Avulso',
+      'mercadolivre_agencia': 'ML Agência',
+      'mercadolivre_correios': 'ML Correios',
+      'shopee_agencia': 'Shopee Agência',
+      'shopee_flex': 'Shopee Flex',
+      'other': 'Outras',
+    };
+    return method ? methods[method] || method : '-';
+  };
+
   const filteredShipments = shipments.filter((s) => {
     const matchesSearch =
       s.recipient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -326,6 +340,7 @@ export default function Shipments() {
                     <TableHead>Data</TableHead>
                     <TableHead>Empresa</TableHead>
                     <TableHead>Destinatário</TableHead>
+                    <TableHead>Método</TableHead>
                     <TableHead>Destino</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Rastreio</TableHead>
@@ -342,7 +357,12 @@ export default function Shipments() {
                       <TableCell className="font-medium">
                         {shipment.clients?.company_name || '-'}
                       </TableCell>
-                      <TableCell className="font-medium">{shipment.recipient_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {shipment.recipient_name || '-'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {getShippingMethodLabel(shipment.shipping_method)}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {shipment.recipient_city}/{shipment.recipient_state}
                       </TableCell>

@@ -426,7 +426,7 @@ export default function ShipmentForm({ onSuccess, onCancel }: ShipmentFormProps)
         .from('shipment_requests')
         .insert({
           client_id: clientToUse,
-          recipient_name: formData.recipient_name || currentMethodConfig?.label || '',
+          recipient_name: formData.recipient_name || '',
           recipient_phone: formData.recipient_phone || null,
           recipient_email: formData.recipient_email || null,
           recipient_address: formData.recipient_address || '-',
