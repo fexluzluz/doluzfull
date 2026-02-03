@@ -26,6 +26,7 @@ import {
   Timer,
   Download,
   Building2,
+  Truck,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -39,6 +40,8 @@ interface ClientBilling {
   itemsShipped: number;
   handlingFeePerItem: number;
   handlingTotal: number;
+  // Logistics
+  logisticsTotal: number;
   // Regular storage
   spaceM3: number;
   storageFeePerM3: number;
@@ -54,6 +57,7 @@ interface ClientBilling {
 
 interface SummaryStats {
   totalHandling: number;
+  totalLogistics: number;
   totalStorage: number;
   totalTemporary: number;
   grandTotal: number;
@@ -71,6 +75,7 @@ export default function FinancialReport() {
   const [clientBillings, setClientBillings] = useState<ClientBilling[]>([]);
   const [summary, setSummary] = useState<SummaryStats>({
     totalHandling: 0,
+    totalLogistics: 0,
     totalStorage: 0,
     totalTemporary: 0,
     grandTotal: 0,
@@ -106,13 +111,14 @@ export default function FinancialReport() {
 
       if (clientsError) throw clientsError;
 
-      // Fetch shipment items for the month (for handling fees)
+      // Fetch shipment items for the month (for handling fees and logistics)
       const { data: shipments, error: shipmentsError } = await supabase
         .from("shipment_requests")
         .select(`
           id,
           client_id,
           created_at,
+          logistics_cost,
           shipment_items(quantity)
         `)
         .gte("created_at", monthStart.toISOString())
@@ -134,11 +140,16 @@ export default function FinancialReport() {
       const billings: ClientBilling[] = [];
 
       for (const client of clients || []) {
-        // Calculate items shipped this month
+        // Calculate items shipped and logistics cost this month
         const clientShipments = shipments?.filter(s => s.client_id === client.id) || [];
         const itemsShipped = clientShipments.reduce((sum, s) => {
           const items = s.shipment_items as any[];
           return sum + (items?.reduce((iSum, item) => iSum + (item.quantity || 0), 0) || 0);
+        }, 0);
+        
+        // Sum logistics costs from all shipments
+        const logisticsTotal = clientShipments.reduce((sum, s) => {
+          return sum + (Number((s as any).logistics_cost) || 0);
         }, 0);
 
         const handlingFeePerItem = Number(client.handling_fee_per_item) || 4.5;
@@ -184,7 +195,7 @@ export default function FinancialReport() {
         const dailyRate = storageFeePerM3 / 30;
         const temporaryStorageTotal = temporaryVolumeM3 * dailyRate * temporaryDays;
 
-        const grandTotal = handlingTotal + storageTotal + temporaryStorageTotal;
+        const grandTotal = handlingTotal + logisticsTotal + storageTotal + temporaryStorageTotal;
 
         if (grandTotal > 0 || itemsShipped > 0 || spaceM3 > 0) {
           billings.push({
@@ -194,6 +205,7 @@ export default function FinancialReport() {
             itemsShipped,
             handlingFeePerItem,
             handlingTotal,
+            logisticsTotal,
             spaceM3,
             storageFeePerM3,
             fixedStorageFee,
@@ -211,6 +223,7 @@ export default function FinancialReport() {
       // Calculate summary
       setSummary({
         totalHandling: billings.reduce((sum, b) => sum + b.handlingTotal, 0),
+        totalLogistics: billings.reduce((sum, b) => sum + b.logisticsTotal, 0),
         totalStorage: billings.reduce((sum, b) => sum + b.storageTotal, 0),
         totalTemporary: billings.reduce((sum, b) => sum + b.temporaryStorageTotal, 0),
         grandTotal: billings.reduce((sum, b) => sum + b.grandTotal, 0),
@@ -242,6 +255,7 @@ export default function FinancialReport() {
       "Itens Enviados",
       "Taxa/Item",
       "Total Manuseio",
+      "Total Logística",
       "Espaço (m³)",
       "Taxa/m³",
       "Taxa Fixa",
@@ -258,6 +272,7 @@ export default function FinancialReport() {
       b.itemsShipped,
       b.handlingFeePerItem.toFixed(2),
       b.handlingTotal.toFixed(2),
+      b.logisticsTotal.toFixed(2),
       b.spaceM3.toFixed(2),
       b.storageFeePerM3.toFixed(2),
       b.fixedStorageFee.toFixed(2),
@@ -273,6 +288,7 @@ export default function FinancialReport() {
       ...rows.map(r => r.join(";")),
       "",
       `Total Manuseio;${summary.totalHandling.toFixed(2)}`,
+      `Total Logística;${summary.totalLogistics.toFixed(2)}`,
       `Total Armazenagem;${summary.totalStorage.toFixed(2)}`,
       `Total Temporário;${summary.totalTemporary.toFixed(2)}`,
       `Total Geral;${summary.grandTotal.toFixed(2)}`,
@@ -317,7 +333,7 @@ export default function FinancialReport() {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Manuseio</CardTitle>
@@ -326,6 +342,16 @@ export default function FinancialReport() {
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(summary.totalHandling)}</div>
               <p className="text-xs text-muted-foreground">{summary.totalItems} itens</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Logística</CardTitle>
+              <Truck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(summary.totalLogistics)}</div>
+              <p className="text-xs text-muted-foreground">Frete cobrado</p>
             </CardContent>
           </Card>
           <Card>
@@ -376,6 +402,7 @@ export default function FinancialReport() {
                     <TableHead>Cliente</TableHead>
                     <TableHead className="text-right">Itens</TableHead>
                     <TableHead className="text-right">Manuseio</TableHead>
+                    <TableHead className="text-right">Logística</TableHead>
                     <TableHead className="text-right">Espaço (m³)</TableHead>
                     <TableHead className="text-right">Armazenagem</TableHead>
                     <TableHead className="text-right">Temp. (dias)</TableHead>
@@ -386,13 +413,13 @@ export default function FinancialReport() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         Carregando...
                       </TableCell>
                     </TableRow>
                   ) : clientBillings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         Nenhum dado de faturamento para o período
                       </TableCell>
                     </TableRow>
@@ -402,6 +429,7 @@ export default function FinancialReport() {
                         <TableCell className="font-medium">{billing.clientName}</TableCell>
                         <TableCell className="text-right">{billing.itemsShipped}</TableCell>
                         <TableCell className="text-right">{formatCurrency(billing.handlingTotal)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(billing.logisticsTotal)}</TableCell>
                         <TableCell className="text-right">{formatNumber(billing.spaceM3, 2)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(billing.storageTotal)}</TableCell>
                         <TableCell className="text-right">{billing.temporaryDays}</TableCell>
