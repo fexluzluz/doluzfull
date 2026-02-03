@@ -582,6 +582,7 @@ export type Database = {
           handling_total: number | null
           id: string
           invoice_url: string | null
+          logistics_cost: number | null
           notes: string | null
           processed_by: string | null
           recipient_address: string
@@ -604,6 +605,7 @@ export type Database = {
           handling_total?: number | null
           id?: string
           invoice_url?: string | null
+          logistics_cost?: number | null
           notes?: string | null
           processed_by?: string | null
           recipient_address: string
@@ -626,6 +628,7 @@ export type Database = {
           handling_total?: number | null
           id?: string
           invoice_url?: string | null
+          logistics_cost?: number | null
           notes?: string | null
           processed_by?: string | null
           recipient_address?: string

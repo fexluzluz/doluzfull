@@ -32,6 +32,9 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState(shipment?.status || 'pending');
   const [trackingCode, setTrackingCode] = useState(shipment?.tracking_code || '');
+  const [logisticsCost, setLogisticsCost] = useState<string>(
+    shipment?.logistics_cost?.toString() || '0'
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +57,7 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
       const updateData: any = {
         status,
         processed_by: user?.id,
+        logistics_cost: parseFloat(logisticsCost) || 0,
       };
 
       if (trackingCode.trim()) {
@@ -100,8 +104,9 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
           }
         }
 
-        // Reset handling total (estorno do manuseio)
+        // Reset handling total and logistics cost (estorno do manuseio)
         updateData.handling_total = 0;
+        updateData.logistics_cost = 0;
       }
 
       const { error } = await supabase
@@ -123,6 +128,7 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
           old_status: shipment.status,
           new_status: status,
           tracking_code: trackingCode || null,
+          logistics_cost: parseFloat(logisticsCost) || 0,
         },
         client_id: shipment.client_id,
       });
@@ -173,6 +179,22 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="logistics_cost">Valor da Logística (R$)</Label>
+              <Input
+                id="logistics_cost"
+                type="number"
+                step="0.01"
+                min="0"
+                value={logisticsCost}
+                onChange={(e) => setLogisticsCost(e.target.value)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Valor cobrado do cliente pelo frete/logística
+              </p>
             </div>
 
             {(status === 'shipped' || status === 'delivered') && (
