@@ -27,10 +27,13 @@ import {
   Download,
   Building2,
   Truck,
+  FileText,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatNumber } from "@/lib/utils";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ClientBilling {
   clientId: string;
@@ -248,7 +251,7 @@ export default function FinancialReport() {
     }).format(value);
   };
 
-  const handleExport = () => {
+  const handleExportCSV = () => {
     const headers = [
       "Cliente",
       "Tipo Cobrança",
@@ -301,6 +304,236 @@ export default function FinancialReport() {
     link.click();
   };
 
+  const handleExportPDF = () => {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const monthDate = new Date(year, month - 1);
+    const monthName = format(monthDate, "MMMM yyyy", { locale: ptBR });
+    
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Header
+    doc.setFillColor(24, 24, 27); // Dark header
+    doc.rect(0, 0, pageWidth, 35, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO FINANCEIRO", 14, 18);
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Período: ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`, 14, 28);
+    
+    doc.setFontSize(9);
+    doc.text(`Emitido em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth - 14, 28, { align: "right" });
+    
+    // Summary Section
+    let yPos = 48;
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("RESUMO DO PERÍODO", 14, yPos);
+    
+    yPos += 8;
+    
+    // Summary boxes
+    const boxWidth = (pageWidth - 38) / 4;
+    const summaryItems = [
+      { label: "Total Manuseio", value: formatCurrency(summary.totalHandling), sub: `${summary.totalItems} itens` },
+      { label: "Total Logística", value: formatCurrency(summary.totalLogistics), sub: "Frete cobrado" },
+      { label: "Total Armazenagem", value: formatCurrency(summary.totalStorage), sub: "Estoque regular" },
+      { label: "Total Temporário", value: formatCurrency(summary.totalTemporary), sub: "Armazenagem temp." },
+    ];
+    
+    summaryItems.forEach((item, index) => {
+      const x = 14 + (index * (boxWidth + 4));
+      doc.setFillColor(249, 250, 251);
+      doc.roundedRect(x, yPos, boxWidth, 22, 2, 2, 'F');
+      
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(107, 114, 128);
+      doc.text(item.label, x + 4, yPos + 6);
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text(item.value, x + 4, yPos + 14);
+      
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(156, 163, 175);
+      doc.text(item.sub, x + 4, yPos + 19);
+    });
+    
+    // Total Geral box
+    yPos += 28;
+    doc.setFillColor(34, 197, 94);
+    doc.roundedRect(14, yPos, pageWidth - 28, 18, 2, 2, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("TOTAL GERAL A FATURAR", 20, yPos + 7);
+    
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(formatCurrency(summary.grandTotal), 20, yPos + 14);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${summary.totalClients} clientes ativos`, pageWidth - 20, yPos + 11, { align: "right" });
+    
+    // Client Details Table
+    yPos += 28;
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("DETALHAMENTO POR CLIENTE", 14, yPos);
+    
+    yPos += 6;
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [[
+        "Cliente",
+        "Itens",
+        "Manuseio",
+        "Logística",
+        "Espaço (m³)",
+        "Armazenagem",
+        "Temp. (dias)",
+        "Temporário",
+        "TOTAL"
+      ]],
+      body: clientBillings.map(b => [
+        b.clientName,
+        b.itemsShipped.toString(),
+        formatCurrency(b.handlingTotal),
+        formatCurrency(b.logisticsTotal),
+        formatNumber(b.spaceM3, 2),
+        formatCurrency(b.storageTotal),
+        b.temporaryDays.toString(),
+        formatCurrency(b.temporaryStorageTotal),
+        formatCurrency(b.grandTotal)
+      ]),
+      foot: [[
+        "TOTAL",
+        summary.totalItems.toString(),
+        formatCurrency(summary.totalHandling),
+        formatCurrency(summary.totalLogistics),
+        "",
+        formatCurrency(summary.totalStorage),
+        "",
+        formatCurrency(summary.totalTemporary),
+        formatCurrency(summary.grandTotal)
+      ]],
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [24, 24, 27],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 7,
+      },
+      footStyles: {
+        fillColor: [249, 250, 251],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        fontSize: 8,
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251],
+      },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { halign: "center" },
+        2: { halign: "right" },
+        3: { halign: "right" },
+        4: { halign: "center" },
+        5: { halign: "right" },
+        6: { halign: "center" },
+        7: { halign: "right" },
+        8: { halign: "right", fontStyle: "bold" },
+      },
+      margin: { left: 14, right: 14 },
+    });
+    
+    // Client breakdown (detailed section)
+    const finalY = (doc as any).lastAutoTable.finalY + 15;
+    
+    if (finalY < doc.internal.pageSize.getHeight() - 80) {
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("COMPOSIÇÃO DAS COBRANÇAS", 14, finalY);
+      
+      autoTable(doc, {
+        startY: finalY + 6,
+        head: [[
+          "Cliente",
+          "Taxa Manuseio",
+          "Taxa/m³",
+          "Taxa Fixa",
+          "Vol. Temp. (m³)"
+        ]],
+        body: clientBillings.map(b => [
+          b.clientName,
+          `R$ ${b.handlingFeePerItem.toFixed(2)}/item`,
+          `R$ ${b.storageFeePerM3.toFixed(2)}/m³`,
+          b.fixedStorageFee > 0 ? formatCurrency(b.fixedStorageFee) : "-",
+          b.temporaryVolumeM3 > 0 ? formatNumber(b.temporaryVolumeM3, 2) : "-"
+        ]),
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [107, 114, 128],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 8,
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251],
+        },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    
+    // Footer on all pages
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(156, 163, 175);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Página ${i} de ${pageCount}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: "center" }
+      );
+      doc.text(
+        "Documento gerado automaticamente - Sistema de Fulfillment",
+        14,
+        doc.internal.pageSize.getHeight() - 10
+      );
+    }
+    
+    doc.save(`relatorio-financeiro-${selectedMonth}.pdf`);
+    
+    toast({
+      title: "PDF exportado com sucesso",
+      description: "O relatório foi salvo na pasta de downloads",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -325,9 +558,13 @@ export default function FinancialReport() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={handleExport} disabled={isLoading}>
+            <Button variant="outline" onClick={handleExportCSV} disabled={isLoading}>
               <Download className="h-4 w-4 mr-2" />
-              Exportar
+              CSV
+            </Button>
+            <Button onClick={handleExportPDF} disabled={isLoading}>
+              <FileText className="h-4 w-4 mr-2" />
+              Exportar PDF
             </Button>
           </div>
         </div>
