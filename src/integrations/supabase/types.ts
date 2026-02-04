@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      additional_charges: {
+        Row: {
+          amount: number
+          client_id: string
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          reference_month: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          client_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          reference_month: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          client_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          reference_month?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "additional_charges_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_employees: {
         Row: {
           client_id: string

@@ -28,12 +28,19 @@ import {
   Building2,
   Truck,
   FileText,
+  Receipt,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatNumber } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+
+interface AdditionalCharge {
+  id: string;
+  title: string;
+  amount: number;
+}
 
 interface ClientBilling {
   clientId: string;
@@ -54,6 +61,9 @@ interface ClientBilling {
   temporaryDays: number;
   temporaryVolumeM3: number;
   temporaryStorageTotal: number;
+  // Additional charges
+  additionalCharges: AdditionalCharge[];
+  additionalTotal: number;
   // Total
   grandTotal: number;
 }
@@ -63,6 +73,7 @@ interface SummaryStats {
   totalLogistics: number;
   totalStorage: number;
   totalTemporary: number;
+  totalAdditional: number;
   grandTotal: number;
   totalClients: number;
   totalItems: number;
@@ -81,6 +92,7 @@ export default function FinancialReport() {
     totalLogistics: 0,
     totalStorage: 0,
     totalTemporary: 0,
+    totalAdditional: 0,
     grandTotal: 0,
     totalClients: 0,
     totalItems: 0,
@@ -138,6 +150,15 @@ export default function FinancialReport() {
         .or(`and(received_date.lte.${monthEnd.toISOString()},or(discharged_at.is.null,discharged_at.gte.${monthStart.toISOString()}))`);
 
       if (tempError) throw tempError;
+
+      // Fetch additional charges for the month
+      const { data: additionalCharges, error: chargesError } = await supabase
+        .from("additional_charges")
+        .select("*")
+        .gte("reference_month", monthStart.toISOString().split('T')[0])
+        .lte("reference_month", monthEnd.toISOString().split('T')[0]);
+
+      if (chargesError) throw chargesError;
 
       // Calculate billing for each client
       const billings: ClientBilling[] = [];
@@ -198,7 +219,16 @@ export default function FinancialReport() {
         const dailyRate = storageFeePerM3 / 30;
         const temporaryStorageTotal = temporaryVolumeM3 * dailyRate * temporaryDays;
 
-        const grandTotal = handlingTotal + logisticsTotal + storageTotal + temporaryStorageTotal;
+        // Calculate additional charges for this client
+        const clientAdditionalCharges = additionalCharges?.filter(c => c.client_id === client.id) || [];
+        const additionalChargesList: AdditionalCharge[] = clientAdditionalCharges.map(c => ({
+          id: c.id,
+          title: c.title,
+          amount: Number(c.amount) || 0,
+        }));
+        const additionalTotal = additionalChargesList.reduce((sum, c) => sum + c.amount, 0);
+
+        const grandTotal = handlingTotal + logisticsTotal + storageTotal + temporaryStorageTotal + additionalTotal;
 
         if (grandTotal > 0 || itemsShipped > 0 || spaceM3 > 0) {
           billings.push({
@@ -216,6 +246,8 @@ export default function FinancialReport() {
             temporaryDays,
             temporaryVolumeM3,
             temporaryStorageTotal,
+            additionalCharges: additionalChargesList,
+            additionalTotal,
             grandTotal,
           });
         }
@@ -229,6 +261,7 @@ export default function FinancialReport() {
         totalLogistics: billings.reduce((sum, b) => sum + b.logisticsTotal, 0),
         totalStorage: billings.reduce((sum, b) => sum + b.storageTotal, 0),
         totalTemporary: billings.reduce((sum, b) => sum + b.temporaryStorageTotal, 0),
+        totalAdditional: billings.reduce((sum, b) => sum + b.additionalTotal, 0),
         grandTotal: billings.reduce((sum, b) => sum + b.grandTotal, 0),
         totalClients: billings.length,
         totalItems: billings.reduce((sum, b) => sum + b.itemsShipped, 0),
@@ -266,6 +299,7 @@ export default function FinancialReport() {
       "Dias Temp.",
       "Volume Temp. (m³)",
       "Total Temporário",
+      "Cobranças Adicionais",
       "Total Geral",
     ];
 
@@ -283,6 +317,9 @@ export default function FinancialReport() {
       b.temporaryDays,
       b.temporaryVolumeM3.toFixed(2),
       b.temporaryStorageTotal.toFixed(2),
+      b.additionalCharges.length > 0 
+        ? b.additionalCharges.map(c => `${c.title}: ${c.amount.toFixed(2)}`).join('; ') 
+        : '-',
       b.grandTotal.toFixed(2),
     ]);
 
@@ -294,6 +331,7 @@ export default function FinancialReport() {
       `Total Logística;${summary.totalLogistics.toFixed(2)}`,
       `Total Armazenagem;${summary.totalStorage.toFixed(2)}`,
       `Total Temporário;${summary.totalTemporary.toFixed(2)}`,
+      `Total Adicional;${summary.totalAdditional.toFixed(2)}`,
       `Total Geral;${summary.grandTotal.toFixed(2)}`,
     ].join("\n");
 
@@ -344,7 +382,7 @@ export default function FinancialReport() {
       { label: "Total Manuseio", value: formatCurrency(summary.totalHandling), sub: `${summary.totalItems} itens` },
       { label: "Total Logística", value: formatCurrency(summary.totalLogistics), sub: "Frete cobrado" },
       { label: "Total Armazenagem", value: formatCurrency(summary.totalStorage), sub: "Estoque regular" },
-      { label: "Total Temporário", value: formatCurrency(summary.totalTemporary), sub: "Armazenagem temp." },
+      { label: "Temp. + Adicional", value: formatCurrency(summary.totalTemporary + summary.totalAdditional), sub: "Outros valores" },
     ];
     
     summaryItems.forEach((item, index) => {
@@ -403,10 +441,8 @@ export default function FinancialReport() {
         "Itens",
         "Manuseio",
         "Logística",
-        "Espaço (m³)",
         "Armazenagem",
-        "Temp. (dias)",
-        "Temporário",
+        "Outros",
         "TOTAL"
       ]],
       body: clientBillings.map(b => [
@@ -414,10 +450,8 @@ export default function FinancialReport() {
         b.itemsShipped.toString(),
         formatCurrency(b.handlingTotal),
         formatCurrency(b.logisticsTotal),
-        formatNumber(b.spaceM3, 2),
         formatCurrency(b.storageTotal),
-        b.temporaryDays.toString(),
-        formatCurrency(b.temporaryStorageTotal),
+        formatCurrency(b.temporaryStorageTotal + b.additionalTotal),
         formatCurrency(b.grandTotal)
       ]),
       foot: [[
@@ -425,10 +459,8 @@ export default function FinancialReport() {
         summary.totalItems.toString(),
         formatCurrency(summary.totalHandling),
         formatCurrency(summary.totalLogistics),
-        "",
         formatCurrency(summary.totalStorage),
-        "",
-        formatCurrency(summary.totalTemporary),
+        formatCurrency(summary.totalTemporary + summary.totalAdditional),
         formatCurrency(summary.grandTotal)
       ]],
       styles: {
@@ -439,7 +471,7 @@ export default function FinancialReport() {
         fillColor: [24, 24, 27],
         textColor: [255, 255, 255],
         fontStyle: "bold",
-        fontSize: 7,
+        fontSize: 8,
       },
       footStyles: {
         fillColor: [249, 250, 251],
@@ -451,15 +483,13 @@ export default function FinancialReport() {
         fillColor: [249, 250, 251],
       },
       columnStyles: {
-        0: { cellWidth: 35 },
+        0: { cellWidth: 40 },
         1: { halign: "center" },
         2: { halign: "right" },
         3: { halign: "right" },
-        4: { halign: "center" },
+        4: { halign: "right" },
         5: { halign: "right" },
-        6: { halign: "center" },
-        7: { halign: "right" },
-        8: { halign: "right", fontStyle: "bold" },
+        6: { halign: "right", fontStyle: "bold" },
       },
       margin: { left: 14, right: 14 },
     });
@@ -570,7 +600,7 @@ export default function FinancialReport() {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Manuseio</CardTitle>
@@ -611,6 +641,16 @@ export default function FinancialReport() {
               <p className="text-xs text-muted-foreground">Armazenagem temporária</p>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cobranças Adicionais</CardTitle>
+              <Receipt className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(summary.totalAdditional)}</div>
+              <p className="text-xs text-muted-foreground">Comissões e outros</p>
+            </CardContent>
+          </Card>
           <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Geral</CardTitle>
@@ -640,37 +680,42 @@ export default function FinancialReport() {
                     <TableHead className="text-right">Itens</TableHead>
                     <TableHead className="text-right">Manuseio</TableHead>
                     <TableHead className="text-right">Logística</TableHead>
-                    <TableHead className="text-right">Espaço (m³)</TableHead>
                     <TableHead className="text-right">Armazenagem</TableHead>
-                    <TableHead className="text-right">Temp. (dias)</TableHead>
                     <TableHead className="text-right">Temporário</TableHead>
+                    <TableHead className="text-right">Adicional</TableHead>
                     <TableHead className="text-right font-semibold">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         Carregando...
                       </TableCell>
                     </TableRow>
                   ) : clientBillings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         Nenhum dado de faturamento para o período
                       </TableCell>
                     </TableRow>
                   ) : (
                     clientBillings.map(billing => (
                       <TableRow key={billing.clientId}>
-                        <TableCell className="font-medium">{billing.clientName}</TableCell>
+                        <TableCell className="font-medium">
+                          <div>{billing.clientName}</div>
+                          {billing.additionalCharges.length > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {billing.additionalCharges.map(c => c.title).join(', ')}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">{billing.itemsShipped}</TableCell>
                         <TableCell className="text-right">{formatCurrency(billing.handlingTotal)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(billing.logisticsTotal)}</TableCell>
-                        <TableCell className="text-right">{formatNumber(billing.spaceM3, 2)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(billing.storageTotal)}</TableCell>
-                        <TableCell className="text-right">{billing.temporaryDays}</TableCell>
                         <TableCell className="text-right">{formatCurrency(billing.temporaryStorageTotal)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(billing.additionalTotal)}</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(billing.grandTotal)}</TableCell>
                       </TableRow>
                     ))
