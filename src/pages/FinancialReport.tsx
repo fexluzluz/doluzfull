@@ -151,12 +151,12 @@ export default function FinancialReport() {
 
       if (tempError) throw tempError;
 
-      // Fetch additional charges for the month
+      // Fetch additional charges for the month (match exact month only)
+      const referenceMonthStr = `${year}-${String(month).padStart(2, "0")}-01`;
       const { data: additionalCharges, error: chargesError } = await supabase
         .from("additional_charges")
         .select("*")
-        .gte("reference_month", monthStart.toISOString().split('T')[0])
-        .lte("reference_month", monthEnd.toISOString().split('T')[0]);
+        .eq("reference_month", referenceMonthStr);
 
       if (chargesError) throw chargesError;
 
