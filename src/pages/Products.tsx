@@ -10,9 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck, MapPin, Download, EyeOff, Eye } from 'lucide-react';
+import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck, MapPin, Download, EyeOff, Eye, FileSpreadsheet, FileText } from 'lucide-react';
 import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Product, ProductLocation } from '@/types/database';
 import ProductForm from '@/components/products/ProductForm';
 import StockMovementDialog from '@/components/products/StockMovementDialog';
@@ -225,6 +229,52 @@ export default function Products() {
     URL.revokeObjectURL(url);
   };
 
+  const getExportData = () => {
+    return filteredProducts.map((p) => {
+      const locs = p.locations?.map(l => `${l.location.aisle}-${l.location.shelf}-${l.location.bin}`).join('; ') || '';
+      return {
+        SKU: p.sku,
+        Nome: p.name,
+        Cliente: (p as any).clients?.company_name || '',
+        Quantidade: p.quantity,
+        'Volume (m³)': Number((p.volume_m3 || 0).toFixed(4)),
+        'Peso (kg)': Number((Number(p.weight_kg) || 0).toFixed(2)),
+        Localização: locs,
+        Status: (p as any).is_active === false ? 'Inativo' : 'Ativo',
+      };
+    });
+  };
+
+  const exportXLS = () => {
+    const data = getExportData();
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Estoque');
+    XLSX.writeFile(wb, `estoque_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF('landscape');
+    doc.setFontSize(16);
+    doc.text('Relatório de Estoque', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+
+    const data = getExportData();
+    const headers = Object.keys(data[0] || {});
+    const rows = data.map(d => headers.map(h => String((d as any)[h])));
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 28,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    doc.save(`estoque_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <DashboardLayout>
       <div className="page-header">
@@ -293,10 +343,28 @@ export default function Products() {
               {showInactive ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
               {showInactive ? 'Inativos' : 'Inativos'}
             </Button>
-            <Button variant="outline" onClick={exportCSV}>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={exportCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportXLS}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel (XLS)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>
