@@ -336,17 +336,16 @@ export default function Shipments() {
                 : 'Nenhuma requisição de envio.'}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
+                   <TableRow>
+                    <TableHead className="w-[80px]">Data</TableHead>
                     <TableHead>Empresa</TableHead>
                     <TableHead>Destinatário</TableHead>
                     <TableHead>Método</TableHead>
-                    <TableHead>Destino</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Rastreio</TableHead>
+                    <TableHead className="w-[70px]">Status</TableHead>
+                    <TableHead className="max-w-[120px]">Rastreio</TableHead>
                     <TableHead>Arquivos</TableHead>
                     <TableHead>Observações</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -355,29 +354,26 @@ export default function Shipments() {
                 <TableBody>
                   {filteredShipments.map((shipment) => (
                     <TableRow key={shipment.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {formatDateTime(shipment.created_at)}
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(shipment.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium text-sm">
                         {shipment.clients?.company_name || '-'}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="text-sm">
                         {shipment.recipient_name || '-'}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="text-muted-foreground text-xs">
                         {getShippingMethodLabel(shipment.shipping_method)}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {shipment.recipient_city}/{shipment.recipient_state}
-                      </TableCell>
                       <TableCell>
-                        <Badge className={`status-badge ${getStatusBadgeClass(shipment.status)}`}>
+                        <Badge className={`status-badge text-xs ${getStatusBadgeClass(shipment.status)}`}>
                           {translateShipmentStatus(shipment.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="max-w-[120px]">
                         {shipment.tracking_code ? (
-                          <span className="font-mono text-sm">{shipment.tracking_code}</span>
+                          <span className="font-mono text-xs break-all">{shipment.tracking_code}</span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
@@ -409,8 +405,8 @@ export default function Shipments() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={shipment.notes || ''}>
-                        {shipment.notes || '-'}
+                      <TableCell className="text-muted-foreground text-xs max-w-[180px]">
+                        <span className="line-clamp-2" title={shipment.notes || ''}>{shipment.notes || '-'}</span>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
