@@ -354,8 +354,9 @@ export default function Shipments() {
                 <TableBody>
                   {filteredShipments.map((shipment) => (
                     <TableRow key={shipment.id}>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(shipment.created_at).toLocaleDateString('pt-BR')}
+                      <TableCell className="text-xs">
+                        <div>{new Date(shipment.created_at).toLocaleDateString('pt-BR')}</div>
+                        <div className="text-[10px] text-muted-foreground">{new Date(shipment.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
                       </TableCell>
                       <TableCell className="font-medium text-sm">
                         {shipment.clients?.company_name || '-'}
