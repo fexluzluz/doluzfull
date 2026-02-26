@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck, MapPin, Download } from 'lucide-react';
+import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck, MapPin, Download, EyeOff, Eye } from 'lucide-react';
 import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Product, ProductLocation } from '@/types/database';
@@ -47,6 +47,7 @@ export default function Products() {
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [balanceProduct, setBalanceProduct] = useState<Product | null>(null);
   const [detailsProduct, setDetailsProduct] = useState<ProductWithLocations | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   const fetchProducts = async () => {
     try {
@@ -173,8 +174,32 @@ export default function Products() {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.sku.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClient = selectedClientId === 'all' || p.client_id === selectedClientId;
-    return matchesSearch && matchesClient;
+    const matchesActive = showInactive || (p as any).is_active !== false;
+    return matchesSearch && matchesClient && matchesActive;
   });
+
+  const handleToggleActive = async (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newStatus = (product as any).is_active === false;
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_active: newStatus } as any)
+        .eq('id', product.id);
+      if (error) throw error;
+      await logAction({
+        action_type: newStatus ? 'product_activated' : 'product_deactivated',
+        entity_type: 'product',
+        entity_id: product.id,
+        description: `Produto "${product.name}" ${newStatus ? 'ativado' : 'inativado'}`,
+        client_id: product.client_id,
+      });
+      toast({ title: `Produto ${newStatus ? 'ativado' : 'inativado'} com sucesso!` });
+      fetchProducts();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    }
+  };
 
   const exportCSV = () => {
     const headers = ['SKU', 'Nome', 'Cliente', 'Quantidade', 'Volume (m³)', 'Peso (kg)', 'Localização'];
@@ -264,6 +289,10 @@ export default function Products() {
                 </SelectContent>
               </Select>
             )}
+            <Button variant="outline" onClick={() => setShowInactive(!showInactive)} className={showInactive ? 'border-primary text-primary' : ''}>
+              {showInactive ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
+              {showInactive ? 'Inativos' : 'Inativos'}
+            </Button>
             <Button variant="outline" onClick={exportCSV}>
               <Download className="h-4 w-4 mr-2" />
               Exportar
@@ -308,10 +337,11 @@ export default function Products() {
                 <TableBody>
                   {filteredProducts.map((product) => {
                     const isLowStock = product.quantity <= (product.min_stock_alert || 5);
+                    const isInactive = (product as any).is_active === false;
                       return (
                         <TableRow 
                           key={product.id} 
-                          className="cursor-pointer hover:bg-muted/50"
+                          className={`cursor-pointer hover:bg-muted/50 ${isInactive ? 'opacity-50' : ''}`}
                           onClick={() => setDetailsProduct(product)}
                         >
                         <TableCell className="font-mono text-sm">{product.sku}</TableCell>
@@ -413,6 +443,16 @@ export default function Products() {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => handleToggleActive(product, e)}
+                                title={(product as any).is_active === false ? 'Ativar produto' : 'Inativar produto'}
+                              >
+                                {(product as any).is_active === false ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                              </Button>
+                            )}
                             {isAdmin && (
                               <Button
                                 variant="ghost"

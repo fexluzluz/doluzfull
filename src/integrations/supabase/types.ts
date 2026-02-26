@@ -358,6 +358,7 @@ export type Database = {
           height_cm: number
           id: string
           image_url: string | null
+          is_active: boolean | null
           max_stock_alert: number | null
           min_stock_alert: number | null
           name: string
@@ -375,6 +376,7 @@ export type Database = {
           height_cm?: number
           id?: string
           image_url?: string | null
+          is_active?: boolean | null
           max_stock_alert?: number | null
           min_stock_alert?: number | null
           name: string
@@ -392,6 +394,7 @@ export type Database = {
           height_cm?: number
           id?: string
           image_url?: string | null
+          is_active?: boolean | null
           max_stock_alert?: number | null
           min_stock_alert?: number | null
           name?: string
