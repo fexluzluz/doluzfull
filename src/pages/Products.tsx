@@ -10,8 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck, MapPin } from 'lucide-react';
+import { Plus, Search, Package, Edit, Trash2, ArrowUpDown, AlertTriangle, ClipboardCheck, MapPin, Download } from 'lucide-react';
 import { formatNumber, calculateVolumeM3 } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Product, ProductLocation } from '@/types/database';
 import ProductForm from '@/components/products/ProductForm';
 import StockMovementDialog from '@/components/products/StockMovementDialog';
@@ -37,8 +38,10 @@ export default function Products() {
   const { toast } = useToast();
   const { logAction } = useSystemLog();
   const [products, setProducts] = useState<ProductWithLocations[]>([]);
+  const [clients, setClients] = useState<Array<{id: string; company_name: string}>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
@@ -113,8 +116,15 @@ export default function Products() {
     }
   };
 
+  const fetchClients = async () => {
+    if (!isAdmin) return;
+    const { data } = await supabase.from('clients').select('id, company_name').order('company_name');
+    setClients(data || []);
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchClients();
   }, [isAdmin, clientId]);
 
   const handleDelete = async (product: Product) => {
@@ -159,11 +169,36 @@ export default function Products() {
     setIsFormOpen(true);
   };
 
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesClient = selectedClientId === 'all' || p.client_id === selectedClientId;
+    return matchesSearch && matchesClient;
+  });
+
+  const exportCSV = () => {
+    const headers = ['SKU', 'Nome', 'Cliente', 'Quantidade', 'Volume (m³)', 'Peso (kg)', 'Localização'];
+    const rows = filteredProducts.map((p) => {
+      const locs = p.locations?.map(l => `${l.location.aisle}-${l.location.shelf}-${l.location.bin}`).join('; ') || '';
+      return [
+        p.sku,
+        p.name,
+        (p as any).clients?.company_name || '',
+        p.quantity,
+        formatNumber(p.volume_m3 || 0, 4),
+        formatNumber(Number(p.weight_kg) || 0, 2),
+        locs,
+      ].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `estoque_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <DashboardLayout>
@@ -203,17 +238,36 @@ export default function Products() {
         </DialogContent>
       </Dialog>
 
-      {/* Search */}
+      {/* Search & Filter */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou SKU..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou SKU..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {isAdmin && (
+              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                <SelectTrigger className="w-full sm:w-[220px]">
+                  <SelectValue placeholder="Todos os clientes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os clientes</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.company_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button variant="outline" onClick={exportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
+            </Button>
           </div>
         </CardContent>
       </Card>
