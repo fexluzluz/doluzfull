@@ -90,7 +90,7 @@ export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDet
 
   return (
     <Dialog open={!!shipment} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
@@ -233,7 +233,7 @@ export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDet
               </div>
             </div>
 
-            {/* Files */}
+            {/* Files Preview */}
             {(shipment.shipping_label_url || shipment.invoice_url) && (
               <>
                 <Separator />
@@ -242,30 +242,50 @@ export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDet
                     <FileText className="h-4 w-4" />
                     Arquivos
                   </h3>
-                  <div className="flex gap-3">
+                  <div className="space-y-4">
                     {shipment.shipping_label_url && (
-                      <a
-                        href={shipment.shipping_label_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                      >
-                        <FileText className="h-4 w-4" />
-                        <span>Etiqueta</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Etiqueta</span>
+                          <a
+                            href={shipment.shipping_label_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            Abrir em nova aba <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                        <div className="border rounded-lg overflow-hidden bg-muted/30">
+                          <iframe
+                            src={shipment.shipping_label_url}
+                            className="w-full h-[400px]"
+                            title="Etiqueta de envio"
+                          />
+                        </div>
+                      </div>
                     )}
                     {shipment.invoice_url && (
-                      <a
-                        href={shipment.invoice_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                      >
-                        <FileText className="h-4 w-4" />
-                        <span>Nota Fiscal</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Declaração / Nota Fiscal</span>
+                          <a
+                            href={shipment.invoice_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            Abrir em nova aba <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                        <div className="border rounded-lg overflow-hidden bg-muted/30">
+                          <iframe
+                            src={shipment.invoice_url}
+                            className="w-full h-[400px]"
+                            title="Declaração / Nota Fiscal"
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
