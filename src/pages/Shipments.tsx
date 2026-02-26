@@ -39,6 +39,7 @@ interface Shipment {
   shipping_label_url: string | null;
   invoice_url: string | null;
   shipping_method: string | null;
+  notes: string | null;
   created_at: string;
   clients: {
     company_name: string;
@@ -227,10 +228,12 @@ export default function Shipments() {
   };
 
   const filteredShipments = shipments.filter((s) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      s.recipient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.tracking_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.clients?.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      s.recipient_name.toLowerCase().includes(term) ||
+      s.tracking_code?.toLowerCase().includes(term) ||
+      s.clients?.company_name?.toLowerCase().includes(term) ||
+      s.notes?.toLowerCase().includes(term);
     const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
     const matchesClient = clientFilter === 'all' || s.client_id === clientFilter;
     return matchesSearch && matchesStatus && matchesClient;
@@ -345,6 +348,7 @@ export default function Shipments() {
                     <TableHead>Status</TableHead>
                     <TableHead>Rastreio</TableHead>
                     <TableHead>Arquivos</TableHead>
+                    <TableHead>Observações</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -404,6 +408,9 @@ export default function Shipments() {
                             <span className="text-muted-foreground">-</span>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={shipment.notes || ''}>
+                        {shipment.notes || '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
