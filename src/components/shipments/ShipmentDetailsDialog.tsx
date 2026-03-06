@@ -28,7 +28,7 @@ export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDet
   useEffect(() => {
     if (shipment) {
       fetchItems();
-      setLogisticsCost(shipment.logistics_cost?.toString() || '0');
+      setLogisticsCost(shipment.logistics_cost ? shipment.logistics_cost.toString() : '');
     }
   }, [shipment]);
 
