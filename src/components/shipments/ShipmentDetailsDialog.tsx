@@ -30,8 +30,12 @@ export default function ShipmentDetailsDialog({ shipment, onClose, onSuccess }: 
     if (shipment) {
       fetchItems();
       setLogisticsCost(shipment.logistics_cost ? shipment.logistics_cost.toString() : '');
+    } else {
+      setLogisticsCost('');
+      setItems([]);
+      setIsLoading(true);
     }
-  }, [shipment]);
+  }, [shipment?.id]);
 
   const fetchItems = async () => {
     if (!shipment) return;
