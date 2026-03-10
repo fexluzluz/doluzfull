@@ -18,7 +18,7 @@ interface ShipmentDetailsDialogProps {
   onSuccess?: () => void;
 }
 
-export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDetailsDialogProps) {
+export default function ShipmentDetailsDialog({ shipment, onClose, onSuccess }: ShipmentDetailsDialogProps) {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const [items, setItems] = useState<any[]>([]);
