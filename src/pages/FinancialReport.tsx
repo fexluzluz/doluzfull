@@ -292,12 +292,9 @@ export default function FinancialReport() {
       "Taxa/Item",
       "Total Manuseio",
       "Total Logística",
-      "Espaço (m³)",
-      "Taxa/m³",
       "Taxa Fixa",
       "Total Armazenagem",
       "Dias Temp.",
-      "Volume Temp. (m³)",
       "Total Temporário",
       "Cobranças Adicionais",
       "Total Geral",
@@ -310,12 +307,9 @@ export default function FinancialReport() {
       b.handlingFeePerItem.toFixed(2),
       b.handlingTotal.toFixed(2),
       b.logisticsTotal.toFixed(2),
-      b.spaceM3.toFixed(2),
-      b.storageFeePerM3.toFixed(2),
       b.fixedStorageFee.toFixed(2),
       b.storageTotal.toFixed(2),
       b.temporaryDays,
-      b.temporaryVolumeM3.toFixed(2),
       b.temporaryStorageTotal.toFixed(2),
       b.additionalCharges.length > 0 
         ? b.additionalCharges.map(c => `${c.title}: ${c.amount.toFixed(2)}`).join('; ') 
@@ -357,8 +351,8 @@ export default function FinancialReport() {
     const rows = [
       ["Manuseio", billing.itemsShipped.toString(), `R$ ${billing.handlingFeePerItem.toFixed(2)}`, `R$ ${billing.handlingTotal.toFixed(2)}`],
       ["Logística (Frete)", "-", "-", `R$ ${billing.logisticsTotal.toFixed(2)}`],
-      ["Armazenagem", `${billing.spaceM3.toFixed(2)} m³`, `R$ ${billing.storageFeePerM3.toFixed(2)}/m³`, `R$ ${billing.storageTotal.toFixed(2)}`],
-      ["Armazenagem Temporária", `${billing.temporaryDays} dias`, `${billing.temporaryVolumeM3.toFixed(2)} m³`, `R$ ${billing.temporaryStorageTotal.toFixed(2)}`],
+      ["Armazenagem", "-", "-", `R$ ${billing.storageTotal.toFixed(2)}`],
+      ["Armazenagem Temporária", `${billing.temporaryDays} dias`, "-", `R$ ${billing.temporaryStorageTotal.toFixed(2)}`],
     ];
 
     // Add additional charges
@@ -422,7 +416,6 @@ export default function FinancialReport() {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(11);
     doc.text(`${billing.itemsShipped} itens enviados`, 20, yPos + 18);
-    doc.text(`${billing.spaceM3.toFixed(2)} m³ armazenados`, pageWidth / 2, yPos + 18);
     
     // Billing details table
     yPos += 35;
@@ -435,11 +428,11 @@ export default function FinancialReport() {
     const tableData = [
       ["Manuseio de pedidos", `${billing.itemsShipped} itens x R$ ${billing.handlingFeePerItem.toFixed(2)}`, formatCurrency(billing.handlingTotal)],
       ["Logística (Frete)", "Valor do frete cobrado", formatCurrency(billing.logisticsTotal)],
-      ["Armazenagem Regular", `${billing.spaceM3.toFixed(2)} m³ x R$ ${billing.storageFeePerM3.toFixed(2)}/m³`, formatCurrency(billing.storageTotal)],
+      ["Armazenagem Regular", "Taxa fixa mensal", formatCurrency(billing.storageTotal)],
     ];
 
     if (billing.temporaryStorageTotal > 0) {
-      tableData.push(["Armazenagem Temporária", `${billing.temporaryVolumeM3.toFixed(2)} m³ x ${billing.temporaryDays} dias`, formatCurrency(billing.temporaryStorageTotal)]);
+      tableData.push(["Armazenagem Temporária", `${billing.temporaryDays} dias`, formatCurrency(billing.temporaryStorageTotal)]);
     }
 
     // Add additional charges
@@ -677,16 +670,12 @@ export default function FinancialReport() {
         head: [[
           "Cliente",
           "Taxa Manuseio",
-          "Taxa/m³",
-          "Taxa Fixa",
-          "Vol. Temp. (m³)"
+          "Taxa Fixa Armazenagem"
         ]],
         body: clientBillings.map(b => [
           b.clientName,
           `R$ ${b.handlingFeePerItem.toFixed(2)}/item`,
-          `R$ ${b.storageFeePerM3.toFixed(2)}/m³`,
-          b.fixedStorageFee > 0 ? formatCurrency(b.fixedStorageFee) : "-",
-          b.temporaryVolumeM3 > 0 ? formatNumber(b.temporaryVolumeM3, 2) : "-"
+          b.fixedStorageFee > 0 ? formatCurrency(b.fixedStorageFee) : "-"
         ]),
         styles: {
           fontSize: 8,
