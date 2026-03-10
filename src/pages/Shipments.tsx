@@ -463,6 +463,7 @@ export default function Shipments() {
       <ShipmentDetailsDialog
         shipment={viewingShipment}
         onClose={() => setViewingShipment(null)}
+        onSuccess={fetchShipments}
       />
 
       {/* Status Dialog */}

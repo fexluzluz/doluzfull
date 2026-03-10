@@ -77,6 +77,7 @@ export default function ShipmentDetailsDialog({ shipment, onClose, onSuccess }: 
         title: 'Sucesso',
         description: 'Valor da logística atualizado',
       });
+      onSuccess?.();
     } catch (error) {
       console.error('Error saving logistics cost:', error);
       toast({
