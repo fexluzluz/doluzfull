@@ -428,11 +428,11 @@ export default function FinancialReport() {
     const tableData = [
       ["Manuseio de pedidos", `${billing.itemsShipped} itens x R$ ${billing.handlingFeePerItem.toFixed(2)}`, formatCurrency(billing.handlingTotal)],
       ["Logística (Frete)", "Valor do frete cobrado", formatCurrency(billing.logisticsTotal)],
-      ["Armazenagem Regular", `${billing.spaceM3.toFixed(2)} m³ x R$ ${billing.storageFeePerM3.toFixed(2)}/m³`, formatCurrency(billing.storageTotal)],
+      ["Armazenagem Regular", "Taxa fixa mensal", formatCurrency(billing.storageTotal)],
     ];
 
     if (billing.temporaryStorageTotal > 0) {
-      tableData.push(["Armazenagem Temporária", `${billing.temporaryVolumeM3.toFixed(2)} m³ x ${billing.temporaryDays} dias`, formatCurrency(billing.temporaryStorageTotal)]);
+      tableData.push(["Armazenagem Temporária", `${billing.temporaryDays} dias`, formatCurrency(billing.temporaryStorageTotal)]);
     }
 
     // Add additional charges
