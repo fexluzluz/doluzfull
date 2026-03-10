@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 interface ShipmentDetailsDialogProps {
   shipment: any;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
 export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDetailsDialogProps) {
