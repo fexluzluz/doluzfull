@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSystemLog } from '@/hooks/useSystemLog';
@@ -30,11 +30,21 @@ export default function ShipmentStatusDialog({ shipment, onClose, onSuccess }: S
   const { toast } = useToast();
   const { logAction } = useSystemLog();
   const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState(shipment?.status || 'pending');
-  const [trackingCode, setTrackingCode] = useState(shipment?.tracking_code || '');
-  const [logisticsCost, setLogisticsCost] = useState<string>(
-    shipment?.logistics_cost?.toString() || '0'
-  );
+  const [status, setStatus] = useState('pending');
+  const [trackingCode, setTrackingCode] = useState('');
+  const [logisticsCost, setLogisticsCost] = useState<string>('');
+
+  useEffect(() => {
+    if (shipment) {
+      setStatus(shipment.status || 'pending');
+      setTrackingCode(shipment.tracking_code || '');
+      setLogisticsCost(shipment.logistics_cost ? shipment.logistics_cost.toString() : '');
+    } else {
+      setStatus('pending');
+      setTrackingCode('');
+      setLogisticsCost('');
+    }
+  }, [shipment?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
