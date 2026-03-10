@@ -15,9 +15,10 @@ import { useToast } from '@/hooks/use-toast';
 interface ShipmentDetailsDialogProps {
   shipment: any;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDetailsDialogProps) {
+export default function ShipmentDetailsDialog({ shipment, onClose, onSuccess }: ShipmentDetailsDialogProps) {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const [items, setItems] = useState<any[]>([]);
@@ -76,6 +77,7 @@ export default function ShipmentDetailsDialog({ shipment, onClose }: ShipmentDet
         title: 'Sucesso',
         description: 'Valor da logística atualizado',
       });
+      onSuccess?.();
     } catch (error) {
       console.error('Error saving logistics cost:', error);
       toast({
