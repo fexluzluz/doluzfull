@@ -670,16 +670,12 @@ export default function FinancialReport() {
         head: [[
           "Cliente",
           "Taxa Manuseio",
-          "Taxa/m³",
-          "Taxa Fixa",
-          "Vol. Temp. (m³)"
+          "Taxa Fixa Armazenagem"
         ]],
         body: clientBillings.map(b => [
           b.clientName,
           `R$ ${b.handlingFeePerItem.toFixed(2)}/item`,
-          `R$ ${b.storageFeePerM3.toFixed(2)}/m³`,
-          b.fixedStorageFee > 0 ? formatCurrency(b.fixedStorageFee) : "-",
-          b.temporaryVolumeM3 > 0 ? formatNumber(b.temporaryVolumeM3, 2) : "-"
+          b.fixedStorageFee > 0 ? formatCurrency(b.fixedStorageFee) : "-"
         ]),
         styles: {
           fontSize: 8,
