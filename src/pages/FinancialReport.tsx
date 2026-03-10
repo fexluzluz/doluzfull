@@ -416,7 +416,6 @@ export default function FinancialReport() {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(11);
     doc.text(`${billing.itemsShipped} itens enviados`, 20, yPos + 18);
-    doc.text(`${billing.spaceM3.toFixed(2)} m³ armazenados`, pageWidth / 2, yPos + 18);
     
     // Billing details table
     yPos += 35;
