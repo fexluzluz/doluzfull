@@ -138,7 +138,7 @@ export default function FinancialReport() {
         `)
         .gte("created_at", monthStart.toISOString())
         .lte("created_at", monthEnd.toISOString())
-        .in("status", ["processing", "shipped", "delivered"]);
+        .neq("status", "cancelled");
 
       if (shipmentsError) throw shipmentsError;
 
