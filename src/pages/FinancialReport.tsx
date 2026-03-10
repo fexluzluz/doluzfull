@@ -351,8 +351,8 @@ export default function FinancialReport() {
     const rows = [
       ["Manuseio", billing.itemsShipped.toString(), `R$ ${billing.handlingFeePerItem.toFixed(2)}`, `R$ ${billing.handlingTotal.toFixed(2)}`],
       ["Logística (Frete)", "-", "-", `R$ ${billing.logisticsTotal.toFixed(2)}`],
-      ["Armazenagem", `${billing.spaceM3.toFixed(2)} m³`, `R$ ${billing.storageFeePerM3.toFixed(2)}/m³`, `R$ ${billing.storageTotal.toFixed(2)}`],
-      ["Armazenagem Temporária", `${billing.temporaryDays} dias`, `${billing.temporaryVolumeM3.toFixed(2)} m³`, `R$ ${billing.temporaryStorageTotal.toFixed(2)}`],
+      ["Armazenagem", "-", "-", `R$ ${billing.storageTotal.toFixed(2)}`],
+      ["Armazenagem Temporária", `${billing.temporaryDays} dias`, "-", `R$ ${billing.temporaryStorageTotal.toFixed(2)}`],
     ];
 
     // Add additional charges
