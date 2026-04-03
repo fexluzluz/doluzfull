@@ -1,0 +1,1 @@
+UPDATE shipment_requests SET logistics_cost = 0 WHERE id = 'c5505428-e930-44b8-b442-bcfd98ce3929';
