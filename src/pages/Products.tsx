@@ -23,7 +23,7 @@ import StockMovementDialog from '@/components/products/StockMovementDialog';
 import StockBalanceDialog from '@/components/products/StockBalanceDialog';
 import ProductDetailsDialog from '@/components/products/ProductDetailsDialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { canDeleteProduct } from '@/lib/productPermissions';
+import { canDeleteProduct, canToggleProductActive } from '@/lib/productPermissions';
 
 interface ProductWithLocations extends Product {
   locations?: Array<{
@@ -207,13 +207,17 @@ export default function Products() {
 
   const handleToggleActive = async (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!canToggleProductActive(isAdmin, hasDeletePermission, clientId, product.client_id)) return;
     const newStatus = (product as any).is_active === false;
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('products')
         .update({ is_active: newStatus } as any)
         .eq('id', product.id);
+      if (!isAdmin && clientId) query = query.eq('client_id', clientId);
+      const { data, error } = await query.select('id');
       if (error) throw error;
+      if (!data?.length) throw new Error('Você não tem permissão para inativar ou ativar este produto.');
       await logAction({
         action_type: newStatus ? 'product_activated' : 'product_deactivated',
         entity_type: 'product',
@@ -534,12 +538,13 @@ export default function Products() {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            {isAdmin && (
+                            {canToggleProductActive(isAdmin, hasDeletePermission, clientId, product.client_id) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={(e) => handleToggleActive(product, e)}
                                 title={(product as any).is_active === false ? 'Ativar produto' : 'Inativar produto'}
+                                aria-label={`${(product as any).is_active === false ? 'Ativar' : 'Inativar'} produto ${product.name}`}
                               >
                                 {(product as any).is_active === false ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                               </Button>
