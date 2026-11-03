@@ -863,6 +863,7 @@ export type Database = {
         Args: { discharged_at: string; received_date: string }
         Returns: number
       }
+      can_delete_client_products: { Args: never; Returns: boolean }
       get_user_client_id: { Args: { _user_id: string }; Returns: string }
       has_log_access: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
