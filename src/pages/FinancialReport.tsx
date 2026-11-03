@@ -230,7 +230,7 @@ export default function FinancialReport() {
 
         const grandTotal = handlingTotal + logisticsTotal + storageTotal + temporaryStorageTotal + additionalTotal;
 
-        if (grandTotal > 0 || itemsShipped > 0 || spaceM3 > 0) {
+        if (grandTotal !== 0 || itemsShipped > 0 || spaceM3 > 0 || additionalChargesList.length > 0) {
           billings.push({
             clientId: client.id,
             clientName: client.company_name,
@@ -357,7 +357,7 @@ export default function FinancialReport() {
 
     // Add additional charges
     billing.additionalCharges.forEach(charge => {
-      rows.push([charge.title, "-", "-", `R$ ${charge.amount.toFixed(2)}`]);
+      rows.push([charge.amount < 0 ? `${charge.title} (crédito)` : charge.title, "-", "-", `R$ ${charge.amount.toFixed(2)}`]);
     });
 
     rows.push(["", "", "", ""]);
@@ -437,7 +437,7 @@ export default function FinancialReport() {
 
     // Add additional charges
     billing.additionalCharges.forEach(charge => {
-      tableData.push([charge.title, "Cobrança adicional", formatCurrency(charge.amount)]);
+      tableData.push([charge.title, charge.amount < 0 ? "Crédito" : "Cobrança adicional", formatCurrency(charge.amount)]);
     });
     
     autoTable(doc, {
