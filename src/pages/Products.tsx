@@ -23,6 +23,7 @@ import StockMovementDialog from '@/components/products/StockMovementDialog';
 import StockBalanceDialog from '@/components/products/StockBalanceDialog';
 import ProductDetailsDialog from '@/components/products/ProductDetailsDialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { canDeleteProduct } from '@/lib/productPermissions';
 
 interface ProductWithLocations extends Product {
   locations?: Array<{
@@ -38,7 +39,7 @@ interface ProductWithLocations extends Product {
 }
 
 export default function Products() {
-  const { isAdmin, clientId } = useAuth();
+  const { isAdmin, clientId, user } = useAuth();
   const { toast } = useToast();
   const { logAction } = useSystemLog();
   const [products, setProducts] = useState<ProductWithLocations[]>([]);
@@ -52,8 +53,24 @@ export default function Products() {
   const [balanceProduct, setBalanceProduct] = useState<Product | null>(null);
   const [detailsProduct, setDetailsProduct] = useState<ProductWithLocations | null>(null);
   const [showInactive, setShowInactive] = useState(false);
+  const [deletePermission, setDeletePermission] = useState<{ userId: string; allowed: boolean } | null>(null);
+  const hasDeletePermission = deletePermission?.userId === user?.id && deletePermission?.allowed === true;
+
+  useEffect(() => {
+    let active = true;
+    if (!user || isAdmin) return;
+    const userId = user.id;
+    supabase.rpc('can_delete_client_products').then(({ data, error }) => {
+      if (active) setDeletePermission({ userId, allowed: !error && data === true });
+    });
+    return () => { active = false; };
+  }, [user?.id, isAdmin]);
 
   const fetchProducts = async () => {
+    if (!user || (!isAdmin && !clientId)) {
+      setProducts([]);
+      return;
+    }
     try {
       let query = supabase
         .from('products')
@@ -94,7 +111,7 @@ export default function Products() {
             if (!locationsMap[loc.product_id]) {
               locationsMap[loc.product_id] = [];
             }
-            locationsMap[loc.product_id]!.push({
+            locationsMap[loc.product_id]?.push({
               id: loc.id,
               quantity: loc.quantity,
               is_primary: loc.is_primary,
@@ -130,18 +147,22 @@ export default function Products() {
   useEffect(() => {
     fetchProducts();
     fetchClients();
-  }, [isAdmin, clientId]);
+  }, [isAdmin, clientId, user?.id]);
 
   const handleDelete = async (product: Product) => {
+    if (!canDeleteProduct(isAdmin, hasDeletePermission, clientId, product.client_id)) return;
     if (!confirm(`Tem certeza que deseja excluir "${product.name}"?`)) return;
 
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('products')
         .delete()
         .eq('id', product.id);
+      if (!isAdmin && clientId) query = query.eq('client_id', clientId);
+      const { data, error } = await query.select('id');
 
       if (error) throw error;
+      if (!data?.length) throw new Error('Você não tem permissão para excluir este produto.');
 
       await logAction({
         action_type: 'product_deleted',
@@ -158,7 +179,9 @@ export default function Products() {
       toast({
         variant: 'destructive',
         title: 'Erro ao excluir produto',
-        description: error.message,
+        description: error.code === '23503'
+          ? 'Este produto está vinculado a envios e não pode ser excluído para preservar o histórico.'
+          : error.message,
       });
     }
   };
@@ -521,12 +544,13 @@ export default function Products() {
                                 {(product as any).is_active === false ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                               </Button>
                             )}
-                            {isAdmin && (
+                            {canDeleteProduct(isAdmin, hasDeletePermission, clientId, product.client_id) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleDelete(product)}
                                 title="Excluir produto"
+                                aria-label={`Excluir produto ${product.name}`}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
