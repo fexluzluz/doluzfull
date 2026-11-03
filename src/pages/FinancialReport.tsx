@@ -115,8 +115,6 @@ export default function FinancialReport() {
     setIsLoading(true);
     try {
       const [year, month] = selectedMonth.split("-").map(Number);
-      const monthStart = startOfMonth(new Date(year, month - 1));
-      const monthEnd = endOfMonth(new Date(year, month - 1));
 
       // Fetch all clients
       const { data: clients, error: clientsError } = await supabase
@@ -125,6 +123,71 @@ export default function FinancialReport() {
         .order("company_name");
 
       if (clientsError) throw clientsError;
+
+      // Carry negative balances (credits) forward from previous months until used up
+      const { data: firstCredit } = await supabase
+        .from("additional_charges")
+        .select("reference_month")
+        .lt("amount", 0)
+        .order("reference_month", { ascending: true })
+        .limit(1);
+
+      const carry: Record<string, number> = {};
+      if (firstCredit && firstCredit.length > 0) {
+        const [cy, cm] = String(firstCredit[0].reference_month).split("-").map(Number);
+        let y = cy, m = cm;
+        while (y < year || (y === year && m < month)) {
+          const prev = await computeMonthBillings(y, m, clients || []);
+          for (const b of prev) {
+            const total = b.grandTotal + (carry[b.clientId] || 0);
+            carry[b.clientId] = total < 0 ? total : 0;
+          }
+          m++;
+          if (m > 12) { m = 1; y++; }
+        }
+      }
+
+      const allBillings = await computeMonthBillings(year, month, clients || []);
+      const billings: ClientBilling[] = [];
+      for (const b of allBillings) {
+        const credit = carry[b.clientId] || 0;
+        if (credit < 0) {
+          b.additionalCharges = [...b.additionalCharges, { id: `carry-${b.clientId}`, title: "Saldo anterior (crédito)", amount: credit }];
+          b.additionalTotal += credit;
+          b.grandTotal += credit;
+        }
+        if (b.grandTotal !== 0 || b.itemsShipped > 0 || b.spaceM3 > 0 || b.additionalCharges.length > 0) {
+          billings.push(b);
+        }
+      }
+
+      setClientBillings(billings);
+
+      // Calculate summary
+      setSummary({
+        totalHandling: billings.reduce((sum, b) => sum + b.handlingTotal, 0),
+        totalLogistics: billings.reduce((sum, b) => sum + b.logisticsTotal, 0),
+        totalStorage: billings.reduce((sum, b) => sum + b.storageTotal, 0),
+        totalTemporary: billings.reduce((sum, b) => sum + b.temporaryStorageTotal, 0),
+        totalAdditional: billings.reduce((sum, b) => sum + b.additionalTotal, 0),
+        grandTotal: billings.reduce((sum, b) => sum + b.grandTotal, 0),
+        totalClients: billings.length,
+        totalItems: billings.reduce((sum, b) => sum + b.itemsShipped, 0),
+      });
+    } catch (error) {
+      console.error("Error fetching billing data:", error);
+      toast({
+        title: "Erro ao carregar dados de faturamento",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const computeMonthBillings = async (year: number, month: number, clients: any[]): Promise<ClientBilling[]> => {
+      const monthStart = startOfMonth(new Date(year, month - 1));
+      const monthEnd = endOfMonth(new Date(year, month - 1));
 
       // Fetch shipment items for the month (for handling fees and logistics)
       const { data: shipments, error: shipmentsError } = await supabase
@@ -230,7 +293,7 @@ export default function FinancialReport() {
 
         const grandTotal = handlingTotal + logisticsTotal + storageTotal + temporaryStorageTotal + additionalTotal;
 
-        if (grandTotal !== 0 || itemsShipped > 0 || spaceM3 > 0 || additionalChargesList.length > 0) {
+        {
           billings.push({
             clientId: client.id,
             clientName: client.company_name,
@@ -253,28 +316,7 @@ export default function FinancialReport() {
         }
       }
 
-      setClientBillings(billings);
-
-      // Calculate summary
-      setSummary({
-        totalHandling: billings.reduce((sum, b) => sum + b.handlingTotal, 0),
-        totalLogistics: billings.reduce((sum, b) => sum + b.logisticsTotal, 0),
-        totalStorage: billings.reduce((sum, b) => sum + b.storageTotal, 0),
-        totalTemporary: billings.reduce((sum, b) => sum + b.temporaryStorageTotal, 0),
-        totalAdditional: billings.reduce((sum, b) => sum + b.additionalTotal, 0),
-        grandTotal: billings.reduce((sum, b) => sum + b.grandTotal, 0),
-        totalClients: billings.length,
-        totalItems: billings.reduce((sum, b) => sum + b.itemsShipped, 0),
-      });
-    } catch (error) {
-      console.error("Error fetching billing data:", error);
-      toast({
-        title: "Erro ao carregar dados de faturamento",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+      return billings;
   };
 
   const formatCurrency = (value: number) => {
