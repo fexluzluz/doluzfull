@@ -293,7 +293,7 @@ export default function FinancialReport() {
 
         const grandTotal = handlingTotal + logisticsTotal + storageTotal + temporaryStorageTotal + additionalTotal;
 
-        if (grandTotal !== 0 || itemsShipped > 0 || spaceM3 > 0 || additionalChargesList.length > 0) {
+        {
           billings.push({
             clientId: client.id,
             clientName: client.company_name,
@@ -316,28 +316,7 @@ export default function FinancialReport() {
         }
       }
 
-      setClientBillings(billings);
-
-      // Calculate summary
-      setSummary({
-        totalHandling: billings.reduce((sum, b) => sum + b.handlingTotal, 0),
-        totalLogistics: billings.reduce((sum, b) => sum + b.logisticsTotal, 0),
-        totalStorage: billings.reduce((sum, b) => sum + b.storageTotal, 0),
-        totalTemporary: billings.reduce((sum, b) => sum + b.temporaryStorageTotal, 0),
-        totalAdditional: billings.reduce((sum, b) => sum + b.additionalTotal, 0),
-        grandTotal: billings.reduce((sum, b) => sum + b.grandTotal, 0),
-        totalClients: billings.length,
-        totalItems: billings.reduce((sum, b) => sum + b.itemsShipped, 0),
-      });
-    } catch (error) {
-      console.error("Error fetching billing data:", error);
-      toast({
-        title: "Erro ao carregar dados de faturamento",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+      return billings;
   };
 
   const formatCurrency = (value: number) => {
