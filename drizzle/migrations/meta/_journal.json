@@ -8,6 +8,13 @@
       "when": 1793712009666,
       "tag": "0000_allow_sulvendas_own_product_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793716196458,
+      "tag": "0001_flex_avulso_default_logistics",
+      "breakpoints": true
     }
   ]
 }
