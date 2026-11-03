@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { canDeleteProduct } from './productPermissions';
+import { canDeleteProduct } from '../src/lib/productPermissions';
 
 describe('product deletion permissions', () => {
   const sulvendas = '6a6d1df3-08b1-4447-85e2-5e41bf4e3e83';
